@@ -3,8 +3,10 @@
 .env.*
 !.env.example
 
-# 管理后台数据（配置/密码/会话密钥）
+# 管理后台数据（配置/密码/会话密钥）与日志
+config/
 data/
+logs/
 
 # Python
 __pycache__/

@@ -13,7 +13,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 
 from app.admin import store
-from app.config import DATA_DIR, get_settings, reload_settings
+from app.config import get_settings, reload_settings
 from app.core.dispatcher import Dispatcher
 
 COOKIE_NAME = "pb_admin"

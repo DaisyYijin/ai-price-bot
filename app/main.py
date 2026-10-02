@@ -10,20 +10,19 @@ from logging.handlers import TimedRotatingFileHandler
 
 from fastapi import FastAPI
 
-from app.config import DATA_DIR, get_settings
+from app.config import LOG_DIR, get_settings
 from app.core.dispatcher import Dispatcher
 from app.platforms.base import PlatformAdapter
 
 
 def _setup_logging() -> None:
-    """stdout + data/logs/app.log 双路输出，日志按天轮转保留 14 天。"""
+    """stdout + logs/app.log 双路输出，日志按天轮转保留 14 天。"""
     handlers: list[logging.Handler] = [logging.StreamHandler()]
     try:
-        log_dir = DATA_DIR / "logs"
-        log_dir.mkdir(parents=True, exist_ok=True)
+        LOG_DIR.mkdir(parents=True, exist_ok=True)
         handlers.append(
             TimedRotatingFileHandler(
-                log_dir / "app.log", when="midnight", backupCount=14, encoding="utf-8"
+                LOG_DIR / "app.log", when="midnight", backupCount=14, encoding="utf-8"
             )
         )
     except OSError:  # 只读文件系统等异常场景下退回仅 stdout

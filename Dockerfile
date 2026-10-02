@@ -11,7 +11,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app ./app
 
-RUN useradd --create-home runner
+RUN useradd --create-home runner \
+    && mkdir -p /app/config /app/data /app/logs \
+    && chown -R runner:runner /app
 USER runner
 
 EXPOSE 2048

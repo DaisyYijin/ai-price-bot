@@ -1,9 +1,9 @@
 """管理后台的文件存储：配置文件、密码哈希、会话密钥。
 
-不引入数据库——所有状态落在 DATA_DIR（Docker 里挂载 ./data 卷即可持久化）：
-  data/config.env       管理后台写入的配置（优先级高于项目根的 .env）
-  data/admin_password   管理密码（盐 + PBKDF2-SHA256，十六进制）
-  data/session.key      会话签名密钥（首次自动生成）
+不引入数据库，分目录落盘（Docker 里各自挂载独立卷）：
+  config/config.env   管理后台写入的配置（优先级高于项目根的 .env）
+  data/admin_password 管理密码（盐 + PBKDF2-SHA256，十六进制）
+  data/session.key    会话签名密钥（首次自动生成）
 """
 
 import hashlib
@@ -12,19 +12,19 @@ import secrets
 import time
 from pathlib import Path
 
-from app.config import DATA_DIR
+from app.config import CONFIG_DIR, DATA_DIR
 
 SESSION_TTL_SECONDS = 7 * 24 * 3600
 
 
 # ---------------------------------------------------------------- 配置文件
-def config_path(data_dir: Path | None = None) -> Path:
-    return (data_dir or DATA_DIR) / "config.env"
+def config_path(config_dir: Path | None = None) -> Path:
+    return (config_dir or CONFIG_DIR) / "config.env"
 
 
-def read_config(data_dir: Path | None = None) -> dict[str, str]:
+def read_config(config_dir: Path | None = None) -> dict[str, str]:
     """解析 KEY=VALUE；忽略注释与空行，值里允许出现 '='。"""
-    path = config_path(data_dir)
+    path = config_path(config_dir)
     values: dict[str, str] = {}
     if not path.exists():
         return values
@@ -37,9 +37,9 @@ def read_config(data_dir: Path | None = None) -> dict[str, str]:
     return values
 
 
-def write_config(values: dict[str, str], data_dir: Path | None = None) -> None:
-    """整表写回 data/config.env；空值不落盘（让默认值生效）。"""
-    path = config_path(data_dir)
+def write_config(values: dict[str, str], config_dir: Path | None = None) -> None:
+    """整表写回 config/config.env；空值不落盘（让默认值生效）。"""
+    path = config_path(config_dir)
     path.parent.mkdir(parents=True, exist_ok=True)
     lines = ["# 由网页管理后台生成，可手工编辑；改完重启容器生效规则同面板保存。"]
     for key, value in values.items():
@@ -49,15 +49,15 @@ def write_config(values: dict[str, str], data_dir: Path | None = None) -> None:
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
-def merge_config(updates: dict[str, str], data_dir: Path | None = None) -> dict[str, str]:
+def merge_config(updates: dict[str, str], config_dir: Path | None = None) -> dict[str, str]:
     """合并更新并写盘，返回合并后的全量值；置空表示删除该键（回落默认值）。"""
-    merged = read_config(data_dir)
+    merged = read_config(config_dir)
     for key, value in updates.items():
         if value == "":
             merged.pop(key, None)
         else:
             merged[key] = value
-    write_config(merged, data_dir)
+    write_config(merged, config_dir)
     return merged
 
 

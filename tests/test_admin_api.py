@@ -10,6 +10,7 @@ from app.main import create_app
 @pytest.fixture()
 def client(tmp_path, monkeypatch):
     monkeypatch.setattr(store, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(store, "CONFIG_DIR", tmp_path)
     return TestClient(create_app())
 
 

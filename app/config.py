@@ -1,7 +1,12 @@
-"""全局配置：由 .env / data/config.env / 环境变量驱动，未启用的平台不加载。
+"""全局配置：由 .env / config/config.env / 环境变量驱动，未启用的平台不加载。
 
-优先级（低→高）：.env → data/config.env → 环境变量。
-data/config.env 由网页管理后台维护（Docker 卷持久化）。
+优先级（低→高）：.env → config/config.env → 环境变量。
+config/config.env 由网页管理后台维护。
+
+持久化目录分工（均可用环境变量覆盖，Docker 各自挂载独立卷）：
+  CONFIG_DIR  配置文件（默认 config/）→ config.env
+  DATA_DIR    凭据（默认 data/）      → admin_password、session.key
+  LOG_DIR     日志（默认 logs/）      → app.log
 """
 
 import os
@@ -10,13 +15,14 @@ from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# 数据目录：管理后台的配置文件、密码、会话密钥都放这里（Docker 挂载卷持久化）
+CONFIG_DIR = Path(os.environ.get("CONFIG_DIR", "config"))
 DATA_DIR = Path(os.environ.get("DATA_DIR", "data"))
+LOG_DIR = Path(os.environ.get("LOG_DIR", "logs"))
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=(".env", DATA_DIR / "config.env"),
+        env_file=(".env", CONFIG_DIR / "config.env"),
         env_file_encoding="utf-8",
         extra="ignore",
     )

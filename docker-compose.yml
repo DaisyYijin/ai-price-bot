@@ -1,8 +1,9 @@
 # AI 比价机器人助手 —— Docker Compose 部署
 #
 # 启动:   docker compose up -d --build
-# 配置:   打开 http://服务器IP:2048/admin 网页后台填写各平台密钥（落盘 ./data，重建容器不丢）
-#         或不用面板，直接把配置写进 data/config.env 再 docker compose restart
+# 配置:   打开 http://服务器IP:2048/admin 网页后台填写各平台密钥（落盘 ./config，重建容器不丢）
+#         或不用面板，直接把配置写进 config/config.env 再 docker compose restart
+# 首次:   mkdir -p config data logs（宿主机预先建目录，避免 docker 自动建成 root 权限）
 # 终端体验: docker compose run --rm price-bot python -m app.cli
 
 services:
@@ -17,7 +18,9 @@ services:
       - "2048:2048"                   # 管理后台 + 企业微信回调；钉钉/QQ 仅出站连接
       # 服务器有反向代理时建议只绑本机: "127.0.0.1:2048:2048"
     volumes:
+      - ./config:/app/config
       - ./data:/app/data
+      - ./logs:/app/logs
     environment:
       TZ: Asia/Shanghai               # 日志时间戳使用本地时区
       # 环境变量直配也可（优先级高于 data/config.env），适合 CI/脚本注入:

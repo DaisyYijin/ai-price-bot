@@ -27,28 +27,25 @@ python -m app.cli        # 终端对话：说「我想看流浪地球3」
 ## Docker 部署
 
 ```bash
+mkdir -p config data logs    # 预先建目录，避免 docker 自动创建成 root 权限
 docker compose up -d --build
 ```
 
 打开 `http://服务器IP:2048/admin` → 首次访问设置管理密码 → 在网页里填写各平台密钥 →
 保存（大模型/比价设置立即生效；平台接入点「立即重启」，容器自动拉起）。
-配置持久化在宿主机 `./data/` 目录，重建容器不丢。
 
 - **钉钉 / QQ**：出站 WebSocket 长连接，部署在任何内网服务器即可，无需公网 IP。
 - **企业微信**：需要公网可达的回调地址，本地调试可用 frp / 云函数 / 服务器反代，
   回调 URL 填 `http(s)://你的域名:2048/webhook/wecom`。
-- 已有 `.env` 的老用户可直接 `cp .env data/config.env`，或把值填进网页后台（一次即可）。
+- 已有 `.env` 的老用户可直接 `cp .env config/config.env`，或把值填进网页后台（一次即可）。
 
-### 持久化目录（`./data`）
+### 持久化目录（三条独立映射）
 
-应用所有落盘状态集中在这一个目录（compose 已挂载，重建容器不丢）：
-
-| 文件 | 内容 |
-| --- | --- |
-| `data/config.env` | 网页后台写入的配置（各平台密钥、开关、价格源） |
-| `data/admin_password` | 管理后台密码哈希 |
-| `data/session.key` | 管理后台会话签名密钥 |
-| `data/logs/app.log` | 应用运行日志（按天轮转，保留 14 天；访问日志看 `docker logs`） |
+| 宿主机目录 | 容器路径 | 内容 |
+| --- | --- | --- |
+| `./config` | `/app/config` | `config.env`：网页后台写入的配置（各平台密钥、开关、价格源） |
+| `./data` | `/app/data` | `admin_password` 管理密码哈希、`session.key` 会话签名密钥 |
+| `./logs` | `/app/logs` | `app.log` 应用日志（按天轮转保留 14 天；访问日志看 `docker logs`） |
 
 ### 网页管理后台（`/admin`）
 
