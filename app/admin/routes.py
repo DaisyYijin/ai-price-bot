@@ -4,6 +4,7 @@
 """
 
 import asyncio
+import json
 import os
 import time
 from pathlib import Path
@@ -38,6 +39,10 @@ FIELDS: list[tuple[str, str, str, str, str]] = [
     ("QQ_CLIENT_SECRET", "qq_client_secret", "Client Secret", "qq", "password"),
     ("PRICE_PROVIDERS", "price_providers", "价格源（逗号分隔）", "general", "text"),
     ("HISTORY_ROUNDS", "history_rounds", "会话保留轮数", "general", "text"),
+    ("DATAOKE_APP_KEY", "dataoke_app_key", "AppKey", "dataoke", "text"),
+    ("DATAOKE_APP_SECRET", "dataoke_app_secret", "AppSecret", "dataoke", "password"),
+    ("JD_UNION_APP_KEY", "jd_union_app_key", "AppKey", "jdunion", "text"),
+    ("JD_UNION_SECRET_KEY", "jd_union_secret_key", "AppSecretKey", "jdunion", "password"),
 ]
 
 SECTION_LABELS = {
@@ -46,6 +51,8 @@ SECTION_LABELS = {
     "dingtalk": "钉钉",
     "qq": "QQ 机器人",
     "general": "比价与会话",
+    "dataoke": "淘宝真实数据（大淘客）",
+    "jdunion": "京东真实数据（京东联盟）",
 }
 
 # 登录失败锁定：IP → (连续失败数, 锁定截止时间)
@@ -348,5 +355,50 @@ async def _run_test(target: str, v: dict[str, str]) -> tuple[bool, str]:
         if data.get("access_token"):
             return True, "access_token 获取成功"
         return False, str(data)[:200]
+
+    if target == "dataoke":
+        if not (v.get("DATAOKE_APP_KEY") and v.get("DATAOKE_APP_SECRET")):
+            return False, "请先填写大淘客 AppKey 与 AppSecret"
+        from app.providers.dataoke import _GOODS_LIST_URL, dataoke_sign
+
+        params = {
+            "appKey": v["DATAOKE_APP_KEY"],
+            "version": "v1.2.4",
+            "keyWords": "手机",
+            "pageId": "1",
+            "pageSize": "1",
+        }
+        params["sign"] = dataoke_sign(params, v["DATAOKE_APP_SECRET"])
+        async with httpx.AsyncClient(timeout=15) as client:
+            resp = await client.get(_GOODS_LIST_URL, params=params)
+            data = resp.json()
+        if data.get("code") == 0:
+            count = len((data.get("data") or {}).get("list") or [])
+            return True, f"接口可用，返回 {count} 条商品"
+        return False, str(data.get("msg") or data)[:200]
+
+    if target == "jdunion":
+        if not (v.get("JD_UNION_APP_KEY") and v.get("JD_UNION_SECRET_KEY")):
+            return False, "请先填写京东联盟 AppKey 与 AppSecretKey"
+        from app.providers.jd_union import _post_json, _ROUTER_URL, jd_union_sign
+
+        payload = {
+            "method": "jd.union.open.goods.query",
+            "app_key": v["JD_UNION_APP_KEY"],
+            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "format": "json",
+            "v": "1.0",
+            "sign_method": "md5",
+            "360buy_param_json": '{"goodsReqDTO":{"keyword":"手机","pageIndex":1,"pageSize":1}}',
+        }
+        payload["sign"] = jd_union_sign(payload, v["JD_UNION_SECRET_KEY"])
+        data = await _post_json(_ROUTER_URL, payload)
+        envelope = data.get("jd_union_open_goods_query_responce") or {}
+        result = envelope.get("queryResult")
+        inner = json.loads(result) if isinstance(result, str) else (result or {})
+        if inner.get("code") == 0:
+            count = len((inner.get("data") or {}).get("list") or [])
+            return True, f"接口可用，返回 {count} 条商品"
+        return False, str(inner.get("message") or data)[:200]
 
     return False, f"未知测试目标：{target}"

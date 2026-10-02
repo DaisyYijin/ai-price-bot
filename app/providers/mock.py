@@ -93,6 +93,7 @@ class MockProvider(PriceProvider):
     """通用模拟源：子类只声明平台身份。"""
 
     offers_per_platform: int = 2
+    is_mock = True
 
     def _make_quotes(self, keyword: str, category: str) -> list[Quote]:
         lo, hi = _PRICE_RANGES.get(category, _PRICE_RANGES["综合"])

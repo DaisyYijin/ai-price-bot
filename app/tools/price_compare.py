@@ -17,7 +17,7 @@ _QUOTE_LINE = "【{platform}】{title} —— ¥{price}{original}{url}"
 async def execute_compare_prices(keyword: str, category: str = "综合") -> str:
     """供 LLM function calling 调用的比价实现，返回给模型阅读的文本。"""
     settings = get_settings()
-    providers = provider_base.build_enabled(settings.enabled_provider_names())
+    providers = provider_base.build_effective(settings)
     if not providers:
         return "当前没有启用任何价格数据源（检查 .env 的 PRICE_PROVIDERS）。"
 
@@ -55,9 +55,16 @@ async def execute_compare_prices(keyword: str, category: str = "综合") -> str:
         best = min(all_quotes, key=lambda q: q.price)
         summary = f"\n\n当前最低价：{best.platform} ¥{best.price:g}（{best.title}）"
 
+    mock_note = (
+        "\n\n注：美团/抖音等未接入真实数据源的平台为模拟报价，仅演示用；"
+        "标注「真实报价」的来自联盟 API。"
+        if any(getattr(p, "is_mock", False) for p in providers)
+        else ""
+    )
+
     return (
         f"关键词「{keyword}」（品类：{category}）各平台报价如下：\n\n"
         + "\n\n".join(chunks)
         + summary
-        + "\n\n注：当前为模拟数据，仅用于演示流程。"
+        + mock_note
     )

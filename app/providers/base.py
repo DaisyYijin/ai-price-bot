@@ -7,6 +7,7 @@
 
 from abc import ABC, abstractmethod
 
+from app.config import Settings
 from app.core.models import Quote
 
 _REGISTRY: dict[str, type["PriceProvider"]] = {}
@@ -36,11 +37,37 @@ def build_enabled(names: list[str]) -> list["PriceProvider"]:
     return providers
 
 
+def build_effective(settings: Settings) -> list["PriceProvider"]:
+    """按配置解析实际使用的数据源：平台配了真实联盟密钥用真实 Provider，否则回落模拟源。"""
+    real_choices: dict[str, tuple[str, str]] = {
+        # 逻辑平台名 → (app_key属性, secret属性)；两个都配置才启用真实源
+        "taobao": ("dataoke_app_key", "dataoke_app_secret"),
+        "jd": ("jd_union_app_key", "jd_union_secret_key"),
+    }
+    providers: list[PriceProvider] = []
+    for name in settings.enabled_provider_names():
+        key_attr, secret_attr = real_choices.get(name.lower(), ("", ""))
+        if key_attr and getattr(settings, key_attr) and getattr(settings, secret_attr):
+            if name.lower() == "taobao":
+                from app.providers.dataoke import DataokeProvider
+
+                providers.append(DataokeProvider())
+                continue
+            if name.lower() == "jd":
+                from app.providers.jd_union import JdUnionProvider
+
+                providers.append(JdUnionProvider())
+                continue
+        providers.extend(build_enabled([name]))
+    return providers
+
+
 class PriceProvider(ABC):
     """一个平台报价源。实现要求：search 不抛异常以外的隐藏状态，可并发调用。"""
 
     name: str = ""  # 注册名（.env PRICE_PROVIDERS 使用）
     platform: str = ""  # 展示给用户的平台名
+    is_mock: bool = False  # 模拟数据源标记（真实源 False），用于结果标注
 
     @abstractmethod
     async def search(self, keyword: str, category: str = "综合") -> list[Quote]:

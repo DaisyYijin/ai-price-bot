@@ -55,6 +55,12 @@ class Settings(BaseSettings):
     price_providers: str = "meituan,taobao,jd,douyin"
     history_rounds: int = 10
 
+    # ---- 真实数据源（联盟 API，填了密钥则对应平台输出真实报价）----
+    dataoke_app_key: str = ""  # 大淘客 → 淘宝真实数据
+    dataoke_app_secret: str = ""
+    jd_union_app_key: str = ""  # 京东联盟 → 京东真实数据
+    jd_union_secret_key: str = ""
+
     def enabled_provider_names(self) -> list[str]:
         return [name.strip() for name in self.price_providers.split(",") if name.strip()]
 

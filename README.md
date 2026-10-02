@@ -100,34 +100,22 @@ LLM_MODEL=glm-4.7
 # Ollama: http://你的机器:11434/v1   (qwen2.5:14b)
 ```
 
-## 关于比价数据的诚实说明
+## 关于比价数据
 
-**美团 / 淘宝 / 京东 / 抖音都没有公开的报价查询 API**（电影票尤其如此）。
-当前版本使用内置**模拟数据源**跑通全流程：价格由 关键词+平台 哈希确定性生成，
-同一关键词永远得到同一组报价，便于演示与测试，回复中会明确标注「模拟数据」。
+**美团 / 淘宝 / 京东 / 抖音均无公开报价 API**，电影票实时票价（按影院/场次浮动）任何官方渠道都不提供。
+当前支持的真实数据通道（管理后台填写密钥即自动切换，保存即生效）：
 
-数据源是插件化的（`app/providers/`）。接入真实数据时新建一个文件即可，核心代码零改动：
+| 平台 | 数据通道 | 注册 | 说明 |
+| --- | --- | --- | --- |
+| 淘宝 | [大淘客](https://www.dataoke.com) | 开放平台创建应用 | 真实商品价、券后价 |
+| 京东 | [京东联盟](https://union.jd.com) | 个人实名，推广管理→API | 真实价格、券信息 |
+| 美团 / 抖音 | —（无 API） | — | 输出模拟数据，结果中会标注 |
 
-```python
-# app/providers/jd_union.py —— 京东联盟示例
-from app.core.models import Quote
-from app.providers.base import PriceProvider, register
+电影票能查到的最接近真实的数据是淘宝上的「电影票代兑券/通兑券」商品，
+配置大淘客后按影片名搜索即可拿到真实售价。
 
-@register
-class JdUnion(PriceProvider):
-    name = "jd_union"
-    platform = "京东"
-
-    async def search(self, keyword: str, category: str = "综合") -> list[Quote]:
-        ...  # 调用联盟 API，映射为 Quote 列表
-```
-
-然后在 `.env` 里 `PRICE_PROVIDERS=meituan,taobao,jd_union,douyin` 并在
-`app/providers/__init__.py` 追加导入。可选的真实数据路径：
-
-- **京东联盟**（union.jd.com，官方 CPS 接口，个人可注册）
-- **大淘客 / 折淘客**（淘宝商品搜索）
-- **抖音精选联盟**（巨量百应）
+数据源是插件化的（`app/providers/`）：新增联盟只需实现 `PriceProvider.search()`
+返回 `Quote` 列表并注册；`build_effective()` 会根据密钥配置自动选择真实源或模拟源。
 
 ## 项目结构
 
