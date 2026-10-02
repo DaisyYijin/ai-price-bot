@@ -66,6 +66,11 @@ def create_app() -> FastAPI:
     app.state.dispatcher = Dispatcher()
     app.state.adapters = _build_adapters(app.state.dispatcher)
 
+    # 网页管理后台：配置填写、连通性测试、重启（始终可用，与平台开关无关）
+    from app.admin.routes import create_admin_router
+
+    app.include_router(create_admin_router(app.state.dispatcher))
+
     for adapter in app.state.adapters:
         adapter.register_routes(app)
 

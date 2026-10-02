@@ -1,13 +1,24 @@
-"""全局配置：全部由 .env / 环境变量驱动，未启用的平台不加载。"""
+"""全局配置：由 .env / data/config.env / 环境变量驱动，未启用的平台不加载。
 
+优先级（低→高）：.env → data/config.env → 环境变量。
+data/config.env 由网页管理后台维护（Docker 卷持久化）。
+"""
+
+import os
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# 数据目录：管理后台的配置文件、密码、会话密钥都放这里（Docker 挂载卷持久化）
+DATA_DIR = Path(os.environ.get("DATA_DIR", "data"))
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env", env_file_encoding="utf-8", extra="ignore"
+        env_file=(".env", DATA_DIR / "config.env"),
+        env_file_encoding="utf-8",
+        extra="ignore",
     )
 
     # ---- AI 大模型（OpenAI 兼容）----
@@ -45,3 +56,8 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
+
+
+def reload_settings() -> None:
+    """管理后台保存配置后调用：清缓存，后续 get_settings() 读到新值。"""
+    get_settings.cache_clear()

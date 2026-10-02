@@ -34,6 +34,10 @@ class LLMClient:
     def configured(self) -> bool:
         return bool(get_settings().llm_api_key)
 
+    async def aclose(self) -> None:
+        """管理后台热重载配置后，旧客户端连接池由此释放。"""
+        await self._client.close()
+
     async def chat(self, messages: list[dict], tools: list[dict] | None = None):
         """一次补全调用，返回原始 choice.message（可能含 tool_calls）。"""
         kwargs: dict = {"model": self.model, "messages": messages}

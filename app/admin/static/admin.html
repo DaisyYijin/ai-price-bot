@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI 比价助手 · 管理后台</title>
+<style>
+  :root {
+    --bg: #0f1420; --card: #1a2233; --line: #2a3550; --text: #e6ecff;
+    --muted: #8b97b8; --accent: #4f7cff; --ok: #2fbf71; --bad: #ff5d5d;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    background: var(--bg); color: var(--text); min-height: 100vh;
+    font: 15px/1.6 "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+    display: flex; flex-direction: column; align-items: center; padding: 32px 16px;
+  }
+  h1 { font-size: 20px; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 28px; }
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+    padding: 22px; width: 100%; max-width: 760px; margin-bottom: 18px;
+  }
+  .card h2 { font-size: 16px; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+  .card h2 .tag { font-size: 11px; color: var(--ok); border: 1px solid var(--ok);
+    border-radius: 99px; padding: 0 8px; }
+  .row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+  .row label { width: 190px; color: var(--muted); font-size: 13px; flex-shrink: 0; }
+  input[type=text], input[type=password] {
+    flex: 1; background: #101627; color: var(--text); border: 1px solid var(--line);
+    border-radius: 8px; padding: 8px 12px; font-size: 14px; outline: none;
+  }
+  input:focus { border-color: var(--accent); }
+  input::placeholder { color: #55618a; }
+  .switch { position: relative; width: 44px; height: 24px; flex-shrink: 0; }
+  .switch input { display: none; }
+  .switch span {
+    position: absolute; inset: 0; background: #2a3550; border-radius: 99px;
+    transition: .2s; cursor: pointer;
+  }
+  .switch span::after {
+    content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px;
+    background: #fff; border-radius: 50%; transition: .2s;
+  }
+  .switch input:checked + span { background: var(--accent); }
+  .switch input:checked + span::after { left: 23px; }
+  button {
+    background: var(--accent); color: #fff; border: none; border-radius: 8px;
+    padding: 9px 20px; font-size: 14px; cursor: pointer;
+  }
+  button:hover { filter: brightness(1.12); }
+  button.ghost { background: transparent; border: 1px solid var(--line); color: var(--muted); }
+  button.small { padding: 6px 14px; font-size: 13px; }
+  .bar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .hint { font-size: 12px; color: var(--muted); }
+  .status { font-size: 13px; margin-left: auto; }
+  .status.ok { color: var(--ok); } .status.bad { color: var(--bad); }
+  .status.wait { color: var(--muted); }
+  #toast {
+    position: fixed; top: 18px; left: 50%; transform: translateX(-50%) translateY(-80px);
+    background: var(--card); border: 1px solid var(--line); color: var(--text);
+    border-radius: 10px; padding: 10px 22px; transition: .25s; z-index: 9; font-size: 14px;
+  }
+  #toast.show { transform: translateX(-50%) translateY(0); }
+  #toast.ok { border-color: var(--ok); } #toast.bad { border-color: var(--bad); }
+  .banner {
+    display: none; background: #3a2b12; border: 1px solid #a97e2f; color: #ffd98a;
+    border-radius: 10px; padding: 10px 16px; margin-bottom: 16px; max-width: 760px;
+    width: 100%; font-size: 13px; align-items: center; gap: 12px;
+  }
+  .banner.show { display: flex; }
+  .center { display: flex; flex-direction: column; justify-content: center;
+    min-height: 60vh; max-width: 380px; }
+  .hidden { display: none !important; }
+  .spin { display: inline-block; animation: rot 1s linear infinite; }
+  @keyframes rot { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div id="toast"></div>
+
+<!-- 视图：首次设置密码 -->
+<div id="view-setup" class="center card hidden">
+  <h2>初始化管理密码</h2>
+  <p class="hint" style="margin-bottom:14px">首次使用，请设置管理后台密码（至少 6 位）。密码保存在服务器 data/ 目录。</p>
+  <div class="row"><input type="password" id="setup-pw" placeholder="设置密码（至少 6 位）"></div>
+  <div class="row"><input type="password" id="setup-pw2" placeholder="再输入一次"></div>
+  <button onclick="doSetup()">创建密码并进入</button>
+</div>
+
+<!-- 视图：登录 -->
+<div id="view-login" class="center card hidden">
+  <h2>登录管理后台</h2>
+  <div class="row"><input type="password" id="login-pw" placeholder="管理密码" onkeydown="if(event.key==='Enter')doLogin()"></div>
+  <button onclick="doLogin()">登录</button>
+</div>
+
+<!-- 视图：配置面板 -->
+<div id="view-panel" class="hidden" style="width:100%;display:flex;flex-direction:column;align-items:center">
+  <h1>AI 比价助手 · 管理后台</h1>
+  <p class="sub">配置保存后，大模型与比价设置立即生效；平台接入的变更需重启服务</p>
+  <div id="restart-banner" class="banner">
+    <span>平台配置已变更，需重启服务后生效</span>
+    <button class="small" onclick="doRestart()">立即重启</button>
+  </div>
+  <div id="sections"></div>
+  <div class="card bar">
+    <button onclick="saveConfig()">保存配置</button>
+    <button class="ghost" onclick="doRestart()">重启服务</button>
+    <button class="ghost" onclick="doLogout()">退出登录</button>
+    <span class="hint">重启约需 5~10 秒（容器会自动拉起）</span>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+let FIELD_META = [];
+
+function toast(msg, ok = true) {
+  const el = $("toast");
+  el.textContent = msg;
+  el.className = "show " + (ok ? "ok" : "bad");
+  setTimeout(() => el.className = "", 2600);
+}
+
+async function api(path, body) {
+  const resp = await fetch("/admin/api/" + path, {
+    method: body === undefined ? "GET" : "POST",
+    headers: { "Content-Type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const data = await resp.json().catch(() => ({}));
+  if (resp.status === 401) { showView("login"); throw new Error("未登录"); }
+  if (!resp.ok) throw new Error(data.detail || resp.statusText);
+  return data;
+}
+
+function showView(name) {
+  for (const v of ["setup", "login", "panel"]) $("view-" + v).classList.toggle("hidden", v !== name);
+}
+
+async function boot() {
+  const state = await api("state");
+  if (!state.password_set) return showView("setup");
+  if (!state.authenticated) return showView("login");
+  await loadConfig();
+  showView("panel");
+}
+
+async function doSetup() {
+  const pw = $("setup-pw").value, pw2 = $("setup-pw2").value;
+  if (pw.length < 6) return toast("密码至少 6 位", false);
+  if (pw !== pw2) return toast("两次输入不一致", false);
+  try { await api("setup", { password: pw }); await boot(); toast("密码已创建"); }
+  catch (e) { toast(e.message, false); }
+}
+
+async function doLogin() {
+  try { await api("login", { password: $("login-pw").value }); await boot(); }
+  catch (e) { toast(e.message, false); }
+}
+
+async function doLogout() {
+  await api("logout", {});
+  showView("login");
+}
+
+async function loadConfig() {
+  const data = await api("config");
+  FIELD_META = data.fields;
+  const bySection = {};
+  for (const f of data.fields) (bySection[f.section] = bySection[f.section] || []).push(f);
+
+  const sectionsEl = $("sections");
+  sectionsEl.innerHTML = "";
+  const testable = { llm: "测试连通", wecom: "测试凭证", dingtalk: "测试凭证", qq: "测试凭证" };
+  for (const [section, fields] of Object.entries(bySection)) {
+    const card = document.createElement("div");
+    card.className = "card";
+    card.innerHTML = `<h2>${data.sections[section] || section}
+      ${testable[section] ? `<button class="ghost small" onclick="runTest('${section}', this)">${testable[section]}</button>
+      <span class="status" id="test-${section}"></span>` : ""}</h2>`;
+    for (const f of fields) {
+      const row = document.createElement("div");
+      row.className = "row";
+      if (f.type === "checkbox") {
+        row.innerHTML = `<label>${f.label}</label>
+          <span class="switch"><input type="checkbox" id="f-${f.key}" ${f.value ? "checked" : ""}><span></span></span>`;
+      } else if (f.type === "password") {
+        row.innerHTML = `<label>${f.label}</label>
+          <input type="password" id="f-${f.key}" placeholder="${f.set ? "已配置，留空保持不变" : "未配置"}" autocomplete="new-password">`;
+      } else {
+        row.innerHTML = `<label>${f.label}</label>
+          <input type="text" id="f-${f.key}" value="${String(f.value).replace(/"/g, "&quot;")}">`;
+      }
+      card.appendChild(row);
+    }
+    sectionsEl.appendChild(card);
+  }
+}
+
+function collectValues(includeEmptySecrets = false) {
+  const values = {};
+  for (const f of FIELD_META) {
+    const el = $("f-" + f.key);
+    if (!el) continue;
+    if (f.type === "checkbox") { values[f.key] = el.checked; continue; }
+    const v = el.value.trim();
+    if (f.type === "password" && v === "" && !includeEmptySecrets) continue; // 留空=不改
+    values[f.key] = v;
+  }
+  return values;
+}
+
+async function saveConfig() {
+  try {
+    const result = await api("config", { values: collectValues() });
+    $("restart-banner").classList.toggle("show", !!result.restart_required);
+    toast(result.restart_required ? "已保存；平台配置需重启生效" : "已保存并生效");
+    await loadConfig();
+  } catch (e) { toast(e.message, false); }
+}
+
+async function runTest(target, btn) {
+  const status = $("test-" + target);
+  status.textContent = "⟳ 测试中…"; status.className = "status wait";
+  btn.disabled = true;
+  try {
+    const data = await api("test", { target, values: collectValues(true) });
+    status.textContent = (data.ok ? "✓ " : "✗ ") + (data.detail || "");
+    status.className = "status " + (data.ok ? "ok" : "bad");
+  } catch (e) {
+    status.textContent = "✗ " + e.message; status.className = "status bad";
+  } finally { btn.disabled = false; }
+}
+
+async function doRestart() {
+  if (!confirm("确定重启服务？约 5~10 秒后自动恢复。")) return;
+  try {
+    await api("restart", {});
+    toast("正在重启，稍后自动刷新…");
+    setTimeout(pollRevive, 2000);
+  } catch (e) { toast(e.message, false); }
+}
+
+async function pollRevive() {
+  try {
+    const resp = await fetch("/admin/api/state");
+    if (resp.ok) { location.reload(); return; }
+  } catch (e) {}
+  setTimeout(pollRevive, 1500);
+}
+
+boot();
+</script>
+</body>
+</html>
