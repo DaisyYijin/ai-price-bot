@@ -9,6 +9,7 @@ from contextlib import asynccontextmanager
 from logging.handlers import TimedRotatingFileHandler
 
 from fastapi import FastAPI
+from fastapi.responses import RedirectResponse
 
 from app.config import LOG_DIR, get_settings
 from app.core.dispatcher import Dispatcher
@@ -91,6 +92,10 @@ def create_app() -> FastAPI:
 
     for adapter in app.state.adapters:
         adapter.register_routes(app)
+
+    @app.get("/", include_in_schema=False)
+    async def root() -> RedirectResponse:
+        return RedirectResponse(url="/admin")
 
     @app.get("/healthz")
     async def healthz() -> dict:
