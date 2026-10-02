@@ -24,19 +24,19 @@ def client(tmp_path, monkeypatch):
     return TestClient(create_app())
 
 
-def _login(client, password="admin-pass-1"):
-    return client.post("/admin/api/login", json={"password": password})
+def _login(client, password="admin-pass-1", username="admin"):
+    return client.post("/admin/api/login", json={"username": username, "password": password})
 
 
 def test_full_flow(client, tmp_path):
     # 未初始化：state 显示无密码，受保护接口 401
-    assert client.get("/admin/api/state").json() == {"password_set": False, "authenticated": False}
+    assert client.get("/admin/api/state").json() == {"credentials_set": False, "authenticated": False}
     assert client.get("/admin/api/config").status_code == 401
     assert _login(client).status_code == 400
 
     # 初始化密码（过短的拒绝）
-    assert client.post("/admin/api/setup", json={"password": "123"}).status_code == 400
-    resp = client.post("/admin/api/setup", json={"password": "admin-pass-1"})
+    assert client.post("/admin/api/setup", json={"username": "admin", "password": "123"}).status_code == 400
+    resp = client.post("/admin/api/setup", json={"username": "admin", "password": "admin-pass-1"})
     assert resp.status_code == 200
 
     # 已登录：能读配置；密钥不回传，只返回 set 标志
@@ -68,7 +68,7 @@ def test_full_flow(client, tmp_path):
 
 
 def test_save_validation(client):
-    client.post("/admin/api/setup", json={"password": "admin-pass-1"})
+    client.post("/admin/api/setup", json={"username": "admin", "password": "admin-pass-1"})
     assert client.post("/admin/api/config", json={"values": {"HISTORY_ROUNDS": "abc"}}).status_code == 400
     resp = client.post("/admin/api/config", json={"values": {"PRICE_PROVIDERS": "pdd,taobao"}})
     assert resp.status_code == 400
@@ -76,7 +76,7 @@ def test_save_validation(client):
 
 
 def test_logout_requires_relogin(client):
-    client.post("/admin/api/setup", json={"password": "admin-pass-1"})
+    client.post("/admin/api/setup", json={"username": "admin", "password": "admin-pass-1"})
     client.post("/admin/api/logout")
     assert client.get("/admin/api/config").status_code == 401
     assert _login(client, "wrong-pass").status_code == 401
@@ -84,35 +84,37 @@ def test_logout_requires_relogin(client):
 
 
 def test_unknown_fields_ignored(client):
-    client.post("/admin/api/setup", json={"password": "admin-pass-1"})
+    client.post("/admin/api/setup", json={"username": "admin", "password": "admin-pass-1"})
     resp = client.post("/admin/api/config", json={"values": {"EVIL_KEY": "x", "LLM_MODEL": "m"}})
     assert resp.status_code == 200
     assert "EVIL_KEY" not in store.read_config()
 
 
 def test_login_lockout_after_five_failures(client):
-    client.post("/admin/api/setup", json={"password": "admin-pass-1"})
+    client.post("/admin/api/setup", json={"username": "admin", "password": "admin-pass-1"})
     for _ in range(5):
-        client.post("/admin/api/login", json={"password": "nope"})
+        client.post("/admin/api/login", json={"username": "admin", "password": "nope"})
     resp = _login(client, "admin-pass-1")  # 正确密码也被锁定拦截
     assert resp.status_code == 429
 
 
 def test_env_password_mode(client, monkeypatch):
     """ADMIN_PASSWORD 环境变量：免注册直接登录，优先于文件密码，禁止 setup。"""
+    monkeypatch.setenv("ADMIN_USERNAME", "root")
     monkeypatch.setenv("ADMIN_PASSWORD", "env-secret-9")
-    assert client.get("/admin/api/state").json() == {"password_set": True, "authenticated": False}
+    assert client.get("/admin/api/state").json() == {"credentials_set": True, "authenticated": False}
     # 环境变量模式下禁止首次设置
-    assert client.post("/admin/api/setup", json={"password": "whatever-1"}).status_code == 400
+    assert client.post("/admin/api/setup", json={"username": "x", "password": "whatever-1"}).status_code == 400
     # 正确的环境变量密码可登录，错误密码被拒
-    assert _login(client, "env-secret-9").status_code == 200
+    assert _login(client, "env-secret-9", username="root").status_code == 200
     client.post("/admin/api/logout")
     assert _login(client, "wrong").status_code == 401
 
 
 def test_env_password_overrides_file_password(client, monkeypatch):
-    client.post("/admin/api/setup", json={"password": "file-based-1"})
+    client.post("/admin/api/setup", json={"username": "admin", "password": "file-based-1"})
     client.post("/admin/api/logout")
+    monkeypatch.setenv("ADMIN_USERNAME", "root")
     monkeypatch.setenv("ADMIN_PASSWORD", "env-wins-7")
     assert _login(client, "file-based-1").status_code == 401
-    assert _login(client, "env-wins-7").status_code == 200
+    assert _login(client, "env-wins-7", username="root").status_code == 200

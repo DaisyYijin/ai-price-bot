@@ -78,21 +78,25 @@ def create_admin_router(dispatcher: Dispatcher) -> APIRouter:
     @router.get("/api/state")
     async def state(request: Request) -> dict:
         return {
-            "password_set": store.password_is_set(),
+            "credentials_set": store.credentials_are_set(),
             "authenticated": _authed(request),
         }
 
     @router.post("/api/setup")
     async def setup(request: Request) -> JSONResponse:
         if store.env_admin_password():
-            return JSONResponse({"detail": "密码已由环境变量 ADMIN_PASSWORD 指定，直接登录即可"}, status_code=400)
-        if store.password_is_set():
-            return JSONResponse({"detail": "密码已设置，请直接登录"}, status_code=400)
+            return JSONResponse(
+                {"detail": "账号密码已由环境变量 ADMIN_USERNAME / ADMIN_PASSWORD 指定，直接登录即可"},
+                status_code=400,
+            )
+        if store.credentials_are_set():
+            return JSONResponse({"detail": "账号密码已设置，请直接登录"}, status_code=400)
         body = await request.json()
+        username = str(body.get("username") or "").strip() or store.DEFAULT_ADMIN_USERNAME
         password = str(body.get("password") or "")
         if len(password) < 6:
             return JSONResponse({"detail": "密码至少 6 位"}, status_code=400)
-        store.set_password(password)
+        store.set_credentials(username, password)
         response = JSONResponse({"ok": True})
         response.set_cookie(COOKIE_NAME, store.create_session(), httponly=True, samesite="lax")
         return response
@@ -104,12 +108,14 @@ def create_admin_router(dispatcher: Dispatcher) -> APIRouter:
         if time.time() < locked_until:
             remain = int(locked_until - time.time()) + 1
             return JSONResponse({"detail": f"失败次数过多，{remain} 秒后再试"}, status_code=429)
-        if not store.password_is_set():
-            return JSONResponse({"detail": "尚未设置密码，请先初始化"}, status_code=400)
+        if not store.credentials_are_set():
+            return JSONResponse({"detail": "尚未设置账号密码，请先初始化"}, status_code=400)
         body = await request.json()
-        if not store.verify_password(str(body.get("password") or "")):
+        username = str(body.get("username") or "")
+        password = str(body.get("password") or "")
+        if not store.verify_credentials(username, password):
             _login_failures[ip] = (fails + 1, time.time() + _LOCK_SECONDS if fails + 1 >= _MAX_FAILS else 0.0)
-            return JSONResponse({"detail": "密码错误"}, status_code=401)
+            return JSONResponse({"detail": "账号或密码错误"}, status_code=401)
         _login_failures.pop(ip, None)
         response = JSONResponse({"ok": True})
         response.set_cookie(COOKIE_NAME, store.create_session(), httponly=True, samesite="lax")

@@ -17,9 +17,16 @@ from app.config import CONFIG_DIR, DATA_DIR
 
 SESSION_TTL_SECONDS = 7 * 24 * 3600
 
+DEFAULT_ADMIN_USERNAME = "admin"
+
+
+def env_admin_username() -> str:
+    """容器环境变量 ADMIN_USERNAME（未设置时默认 admin）。"""
+    return os.environ.get("ADMIN_USERNAME", "").strip() or DEFAULT_ADMIN_USERNAME
+
 
 def env_admin_password() -> str:
-    """容器环境变量 ADMIN_PASSWORD 指定的管理密码（优先于文件密码）。"""
+    """容器环境变量 ADMIN_PASSWORD 指定的管理密码（优先于文件凭据）。"""
     return os.environ.get("ADMIN_PASSWORD", "").strip()
 
 
@@ -67,9 +74,13 @@ def merge_config(updates: dict[str, str], config_dir: Path | None = None) -> dic
     return merged
 
 
-# ---------------------------------------------------------------- 管理密码
+# ---------------------------------------------------------------- 管理凭据
 def _password_path(data_dir: Path | None = None) -> Path:
     return (data_dir or DATA_DIR) / "admin_password"
+
+
+def _username_path(data_dir: Path | None = None) -> Path:
+    return (data_dir or DATA_DIR) / "admin_user"
 
 
 def hash_password(password: str) -> str:
@@ -78,20 +89,29 @@ def hash_password(password: str) -> str:
     return f"{salt}${digest}"
 
 
-def password_is_set(data_dir: Path | None = None) -> bool:
+def credentials_are_set(data_dir: Path | None = None) -> bool:
     return bool(env_admin_password()) or _password_path(data_dir).exists()
 
 
-def set_password(password: str, data_dir: Path | None = None) -> None:
-    path = _password_path(data_dir)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(hash_password(password), encoding="utf-8")
+def set_credentials(username: str, password: str, data_dir: Path | None = None) -> None:
+    username = username.strip() or DEFAULT_ADMIN_USERNAME
+    user_path = _username_path(data_dir)
+    user_path.parent.mkdir(parents=True, exist_ok=True)
+    user_path.write_text(username, encoding="utf-8")
+    _password_path(data_dir).write_text(hash_password(password), encoding="utf-8")
 
 
-def verify_password(password: str, data_dir: Path | None = None) -> bool:
+def verify_credentials(username: str, password: str, data_dir: Path | None = None) -> bool:
+    username = username.strip()
     env_password = env_admin_password()
-    if env_password:  # 环境变量指定密码时直接比对，不读文件
-        return hmac.compare_digest(password.encode(), env_password.encode())
+    if env_password:  # 环境变量指定凭据时直接比对，不读文件
+        user_ok = hmac.compare_digest(username.encode(), env_admin_username().encode())
+        password_ok = hmac.compare_digest(password.encode(), env_password.encode())
+        return user_ok and password_ok
+    user_path = _username_path(data_dir)
+    expected_user = user_path.read_text(encoding="utf-8").strip() if user_path.exists() else ""
+    if not expected_user or not hmac.compare_digest(username.encode(), expected_user.encode()):
+        return False
     path = _password_path(data_dir)
     if not path.exists():
         return False

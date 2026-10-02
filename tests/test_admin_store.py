@@ -3,16 +3,25 @@
 from app.admin import store
 
 
-def test_password_roundtrip(tmp_path):
-    assert not store.password_is_set(tmp_path)
-    store.set_password("s3cret-密码", tmp_path)
-    assert store.password_is_set(tmp_path)
-    assert store.verify_password("s3cret-密码", tmp_path)
-    assert not store.verify_password("wrong", tmp_path)
-    # 哈希落盘，不含明文
+def test_credentials_roundtrip(tmp_path):
+    assert not store.credentials_are_set(tmp_path)
+    store.set_credentials("boss", "s3cret-密码", tmp_path)
+    assert store.credentials_are_set(tmp_path)
+    assert store.verify_credentials("boss", "s3cret-密码", tmp_path)
+    assert not store.verify_credentials("someone-else", "s3cret-密码", tmp_path)  # 账号错
+    assert not store.verify_credentials("boss", "wrong", tmp_path)  # 密码错
+    # 密码哈希落盘不含明文；账号明文单独存
     stored = (tmp_path / "admin_password").read_text(encoding="utf-8")
     assert "s3cret-密码" not in stored
     assert "$" in stored  # salt$digest
+    assert (tmp_path / "admin_user").read_text(encoding="utf-8") == "boss"
+
+
+def test_env_credentials_default_username(monkeypatch):
+    monkeypatch.setenv("ADMIN_PASSWORD", "env-pass-9")
+    assert store.env_admin_username() == "admin"  # 未设 ADMIN_USERNAME 时默认
+    assert store.verify_credentials("admin", "env-pass-9")
+    assert not store.verify_credentials("other", "env-pass-9")
 
 
 def test_config_roundtrip_and_merge(tmp_path):

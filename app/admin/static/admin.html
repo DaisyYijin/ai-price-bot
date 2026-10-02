@@ -79,19 +79,21 @@
 <body>
 <div id="toast"></div>
 
-<!-- 视图：首次设置密码 -->
+<!-- 视图：首次设置账号密码 -->
 <div id="view-setup" class="center card hidden">
-  <h2>初始化管理密码</h2>
-  <p class="hint" style="margin-bottom:14px">首次使用，请设置管理后台密码（至少 6 位）。密码保存在服务器 data/ 目录。</p>
+  <h2>初始化管理账号</h2>
+  <p class="hint" style="margin-bottom:14px">首次使用，请设置管理后台的账号与密码（密码至少 6 位）。凭据保存在服务器 data/ 目录。</p>
+  <div class="row"><input type="text" id="setup-user" placeholder="账号（留空默认 admin）"></div>
   <div class="row"><input type="password" id="setup-pw" placeholder="设置密码（至少 6 位）"></div>
   <div class="row"><input type="password" id="setup-pw2" placeholder="再输入一次"></div>
-  <button onclick="doSetup()">创建密码并进入</button>
+  <button onclick="doSetup()">创建账号并进入</button>
 </div>
 
 <!-- 视图：登录 -->
 <div id="view-login" class="center card hidden">
   <h2>登录管理后台</h2>
-  <div class="row"><input type="password" id="login-pw" placeholder="管理密码" onkeydown="if(event.key==='Enter')doLogin()"></div>
+  <div class="row"><input type="text" id="login-user" placeholder="账号"></div>
+  <div class="row"><input type="password" id="login-pw" placeholder="密码" onkeydown="if(event.key==='Enter')doLogin()"></div>
   <button onclick="doLogin()">登录</button>
 </div>
 
@@ -141,23 +143,26 @@ function showView(name) {
 
 async function boot() {
   const state = await api("state");
-  if (!state.password_set) return showView("setup");
+  if (!state.credentials_set) return showView("setup");
   if (!state.authenticated) return showView("login");
   await loadConfig();
   showView("panel");
 }
 
 async function doSetup() {
+  const user = $("setup-user").value.trim();
   const pw = $("setup-pw").value, pw2 = $("setup-pw2").value;
   if (pw.length < 6) return toast("密码至少 6 位", false);
   if (pw !== pw2) return toast("两次输入不一致", false);
-  try { await api("setup", { password: pw }); await boot(); toast("密码已创建"); }
+  try { await api("setup", { username: user, password: pw }); await boot(); toast("账号已创建"); }
   catch (e) { toast(e.message, false); }
 }
 
 async function doLogin() {
-  try { await api("login", { password: $("login-pw").value }); await boot(); }
-  catch (e) { toast(e.message, false); }
+  try {
+    await api("login", { username: $("login-user").value.trim(), password: $("login-pw").value });
+    await boot();
+  } catch (e) { toast(e.message, false); }
 }
 
 async function doLogout() {
