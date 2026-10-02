@@ -1,7 +1,7 @@
 # AI 比价机器人助手 —— Docker Compose 部署
 #
 # 启动:   docker compose up -d --build
-# 配置:   打开 http://服务器IP:8000/admin 网页后台填写各平台密钥（落盘 ./data，重建容器不丢）
+# 配置:   打开 http://服务器IP:18600/admin 网页后台填写各平台密钥（落盘 ./data，重建容器不丢）
 #         或不用面板，直接把配置写进 data/config.env 再 docker compose restart
 # 终端体验: docker compose run --rm price-bot python -m app.cli
 
@@ -14,10 +14,15 @@ services:
     init: true                        # 正确处理信号与子进程回收
     stop_grace_period: 15s            # 退出前给钉钉线程/QQ长连接留收尾时间
     ports:
-      - "8000:8000"                   # 网页管理后台 + 企业微信回调；钉钉/QQ 仅出站连接不需要端口
-      # 服务器有反向代理时建议只绑本机: "127.0.0.1:8000:8000"
+      - "18600:8000"                  # 宿主机用不常用端口18600，容器内仍是8000；钉钉/QQ 仅出站连接
+      # 服务器有反向代理时建议只绑本机: "127.0.0.1:18600:8000"
     volumes:
-      - ./data:/app/data              # 管理后台配置/密码持久化（必需，删容器不丢配置）
+      # ./data 是应用唯一需要持久化的目录，包含全部状态:
+      #   config.env       网页后台写入的配置（各平台密钥、开关、价格源）
+      #   admin_password   管理后台密码哈希（PBKDF2）
+      #   session.key      管理后台会话签名密钥
+      #   logs/app.log     应用日志（按天轮转，保留 14 天）
+      - ./data:/app/data
     environment:
       TZ: Asia/Shanghai               # 日志时间戳使用本地时区
       # 环境变量直配也可（优先级高于 data/config.env），适合 CI/脚本注入:
@@ -32,7 +37,7 @@ services:
       start_period: 15s
       retries: 3
     logging:
-      driver: json-file               # 日志轮转，防止长期运行撑爆磁盘
+      driver: json-file               # 容器 stdout 日志轮转（访问日志在这里）
       options:
         max-size: "10m"
         max-file: "3"

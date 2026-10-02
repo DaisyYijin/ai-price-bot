@@ -1,22 +1,40 @@
 """FastAPI 应用入口：按 .env 开关装配各平台适配器。
 
-启动: uvicorn app.main:app --host 0.0.0.0 --port 8000
+启动: uvicorn app.main:app --host 0.0.0.0 --port 18600
 健康检查: GET /healthz
 """
 
 import logging
 from contextlib import asynccontextmanager
+from logging.handlers import TimedRotatingFileHandler
 
 from fastapi import FastAPI
 
-from app.config import get_settings
+from app.config import DATA_DIR, get_settings
 from app.core.dispatcher import Dispatcher
 from app.platforms.base import PlatformAdapter
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-)
+
+def _setup_logging() -> None:
+    """stdout + data/logs/app.log 双路输出，日志按天轮转保留 14 天。"""
+    handlers: list[logging.Handler] = [logging.StreamHandler()]
+    try:
+        log_dir = DATA_DIR / "logs"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        handlers.append(
+            TimedRotatingFileHandler(
+                log_dir / "app.log", when="midnight", backupCount=14, encoding="utf-8"
+            )
+        )
+    except OSError:  # 只读文件系统等异常场景下退回仅 stdout
+        pass
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+        handlers=handlers,
+    )
+
+
 logger = logging.getLogger("app.main")
 
 
@@ -61,6 +79,7 @@ async def lifespan(app: FastAPI):
 
 
 def create_app() -> FastAPI:
+    _setup_logging()
     settings = get_settings()
     app = FastAPI(title="AI 比价机器人助手", lifespan=lifespan)
     app.state.dispatcher = Dispatcher()
