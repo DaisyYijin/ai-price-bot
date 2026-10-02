@@ -1,6 +1,6 @@
 """FastAPI 应用入口：按 .env 开关装配各平台适配器。
 
-启动: uvicorn app.main:app --host 0.0.0.0 --port 18600
+启动: uvicorn app.main:app --host 0.0.0.0 --port 2048
 健康检查: GET /healthz
 """
 

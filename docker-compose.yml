@@ -1,7 +1,7 @@
 # AI 比价机器人助手 —— Docker Compose 部署
 #
 # 启动:   docker compose up -d --build
-# 配置:   打开 http://服务器IP:18600/admin 网页后台填写各平台密钥（落盘 ./data，重建容器不丢）
+# 配置:   打开 http://服务器IP:2048/admin 网页后台填写各平台密钥（落盘 ./data，重建容器不丢）
 #         或不用面板，直接把配置写进 data/config.env 再 docker compose restart
 # 终端体验: docker compose run --rm price-bot python -m app.cli
 
@@ -14,14 +14,9 @@ services:
     init: true                        # 正确处理信号与子进程回收
     stop_grace_period: 15s            # 退出前给钉钉线程/QQ长连接留收尾时间
     ports:
-      - "18600:8000"                  # 宿主机用不常用端口18600，容器内仍是8000；钉钉/QQ 仅出站连接
-      # 服务器有反向代理时建议只绑本机: "127.0.0.1:18600:8000"
+      - "2048:8000"                   # 宿主机端口2048，容器内仍是8000；钉钉/QQ 仅出站连接
+      # 服务器有反向代理时建议只绑本机: "127.0.0.1:2048:8000"
     volumes:
-      # ./data 是应用唯一需要持久化的目录，包含全部状态:
-      #   config.env       网页后台写入的配置（各平台密钥、开关、价格源）
-      #   admin_password   管理后台密码哈希（PBKDF2）
-      #   session.key      管理后台会话签名密钥
-      #   logs/app.log     应用日志（按天轮转，保留 14 天）
       - ./data:/app/data
     environment:
       TZ: Asia/Shanghai               # 日志时间戳使用本地时区
