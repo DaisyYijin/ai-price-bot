@@ -1,0 +1,10 @@
+services:
+  price-bot:
+    build: .
+    container_name: price-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"   # 企业微信回调需要；钉钉/QQ 仅出站连接，不需要端口映射也可删掉
+    # 终端体验模式: docker compose run --rm price-bot python -m app.cli
