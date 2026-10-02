@@ -137,6 +137,7 @@ const LLM_PRESETS = [
 
 // 各平台填写指引（显示在分区卡片顶部）
 const SECTION_HINTS = {
+  general: "价格源 meituan/taobao/jd/douyin 为内置模拟数据，演示全流程用，无需填写任何账号密钥；接入真实报价需注册联盟平台账号并添加适配器，见 README「关于比价数据的诚实说明」",
   wecom: "① work.weixin.qq.com → 应用管理 → 创建自建应用；② Corp ID 在「我的企业」页，Agent ID 与 Secret 在应用详情页；③ 应用「接收消息」→ 设置API接收 → 生成 Token 与 EncodingAESKey，URL 填 http(s)://你的公网域名:2048/webhook/wecom",
   dingtalk: "① open-dev.dingtalk.com → 应用开发 → 创建企业内部应用；② 「添加应用能力」→ 机器人，消息接收模式选 Stream 模式；③ Client ID / Client Secret 在「凭证与基础信息」页（无需公网 IP）",
   qq: "① q.qq.com 注册并创建机器人（个人可注册）；② App ID 与 Client Secret 在机器人「开发设置」页；③ 群里使用需 @机器人（无需公网 IP）",
