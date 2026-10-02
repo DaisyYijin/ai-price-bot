@@ -79,6 +79,14 @@
   .hidden { display: none !important; }
   .spin { display: inline-block; animation: rot 1s linear infinite; }
   @keyframes rot { to { transform: rotate(360deg); } }
+  #login-modal {
+    display: none; position: fixed; inset: 0; background: rgba(5,8,15,.8); z-index: 8;
+    align-items: center; justify-content: center; flex-direction: column; gap: 14px;
+  }
+  #login-modal.show { display: flex; }
+  #login-modal img {
+    background: #fff; border-radius: 10px; max-width: 90vw; max-height: 70vh;
+  }
 </style>
 </head>
 <body>
@@ -112,6 +120,35 @@
     <button class="small" onclick="doRestart()">立即重启</button>
   </div>
   <div id="sections"></div>
+
+  <div class="card" id="browser-card">
+    <h2>浏览器登录（真实团购数据·实验）
+      <button class="ghost small" onclick="testBrowser(this)">状态检查</button>
+      <span class="status" id="test-browser"></span>
+    </h2>
+    <p class="hint" style="margin:-6px 0 12px">
+      登录后，足疗/美食/电影等团购查询将用你的登录态抓取真实价格（实验功能：平台改版或风控可能失败，失败会如实提示，绝不伪造）。建议小号。
+    </p>
+    <div class="row">
+      <label>美团账号</label>
+      <input type="text" id="mt-phone" placeholder="手机号" style="max-width:160px">
+      <input type="password" id="mt-password" placeholder="密码（只在内存中使用，不保存）" style="max-width:240px">
+      <button class="small" onclick="startLogin('meituan')">美团登录</button>
+    </div>
+    <div class="row">
+      <label>短信验证码</label>
+      <input type="text" id="mt-sms" placeholder="触发短信后填这里" style="max-width:120px">
+      <button class="small" onclick="sendSms()">提交验证码</button>
+      <button class="ghost small" onclick="startLogin('douyin')">抖音扫码</button>
+      <span class="hint" id="browser-login-state"></span>
+    </div>
+  </div>
+
+  <div id="login-modal">
+    <img id="login-frame" alt="登录页实时画面">
+    <div style="color:var(--muted);font-size:14px" id="login-modal-state">等待登录页画面…</div>
+    <button class="ghost" onclick="closeLogin()">关闭</button>
+  </div>
   <div class="card bar">
     <button onclick="saveConfig()">保存配置</button>
     <button class="ghost" onclick="doRestart()">重启服务</button>
@@ -328,6 +365,68 @@ async function pollRevive() {
     if (resp.ok) { location.reload(); return; }
   } catch (e) {}
   setTimeout(pollRevive, 1500);
+}
+
+let loginTimer = null;
+async function startLogin(platform) {
+  const body = { platform };
+  if (platform === "meituan") {
+    body.phone = $("mt-phone").value.trim();
+    body.password = $("mt-password").value;
+  }
+  try { await api("browser-login/start", body); }
+  catch (e) { return toast(e.message, false); }
+  $("login-modal").classList.add("show");
+  refreshLoginFrame();
+  clearInterval(loginTimer);
+  loginTimer = setInterval(pollLoginStatus, 2500);
+}
+
+async function sendSms() {
+  try {
+    await api("browser-login/code", { code: $("mt-sms").value.trim() });
+    toast("验证码已提交");
+  } catch (e) { toast(e.message, false); }
+}
+
+function refreshLoginFrame() {
+  $("login-frame").src = "/admin/api/browser-login/frame?t=" + Date.now();
+  setTimeout(refreshLoginFrame, 2500);
+}
+
+async function pollLoginStatus() {
+  try {
+    const data = await api("browser-login/status");
+    $("login-modal-state").textContent = data.message || data.state;
+    $("browser-login-state").textContent = Object.entries(data.logged)
+      .map(([k, v]) => (v ? `✓${k}已登录` : "")).filter(Boolean).join(" ") || "未登录";
+    if (data.state === "logged_in") {
+      clearInterval(loginTimer);
+      $("login-modal").classList.remove("show");
+      toast("登录成功，已保存登录态");
+    } else if (data.state === "timeout" || data.state === "error") {
+      clearInterval(loginTimer);
+    }
+  } catch (e) { /* 会话过期等，忽略 */ }
+}
+
+function closeLogin() {
+  clearInterval(loginTimer);
+  $("login-modal").classList.remove("show");
+}
+
+async function testBrowser(btn) {
+  const status = $("test-browser");
+  status.textContent = "⟳ 检查中…"; status.className = "status wait";
+  btn.disabled = true;
+  try {
+    const data = await api("test", { target: "browser", values: {} });
+    status.textContent = (data.ok ? "✓ " : "✗ ") + (data.detail || "");
+    status.className = "status " + (data.ok ? "ok" : "bad");
+    pollLoginStatus();
+  } catch (e) {
+    status.textContent = "✗ " + e.message; status.className = "status bad";
+  } finally { btn.disabled = false; }
 }
 
 boot();

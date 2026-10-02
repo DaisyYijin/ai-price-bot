@@ -76,6 +76,12 @@ async def lifespan(app: FastAPI):
                 await stop()
             except Exception:
                 logger.exception("平台 %s 停止异常", adapter.platform)
+    try:  # 关闭无头浏览器
+        from app.browser.manager import get_browser_manager
+
+        await get_browser_manager().aclose()
+    except Exception:
+        logger.exception("浏览器关闭异常")
 
 
 def create_app() -> FastAPI:

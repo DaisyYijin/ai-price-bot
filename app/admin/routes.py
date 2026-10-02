@@ -43,6 +43,7 @@ FIELDS: list[tuple[str, str, str, str, str]] = [
     ("DATAOKE_APP_SECRET", "dataoke_app_secret", "AppSecret", "dataoke", "password"),
     ("JD_UNION_APP_KEY", "jd_union_app_key", "AppKey", "jdunion", "text"),
     ("JD_UNION_SECRET_KEY", "jd_union_secret_key", "AppSecretKey", "jdunion", "password"),
+    ("BROWSER_ENABLED", "browser_enabled", "启用浏览器真实数据（美团，实验）", "browser", "checkbox"),
 ]
 
 SECTION_LABELS = {
@@ -53,6 +54,7 @@ SECTION_LABELS = {
     "general": "比价与会话",
     "dataoke": "淘宝真实数据（大淘客）",
     "jdunion": "京东真实数据（京东联盟）",
+    "browser": "浏览器真实数据（实验）",
 }
 
 # 登录失败锁定：IP → (连续失败数, 锁定截止时间)
@@ -223,6 +225,65 @@ def create_admin_router(dispatcher: Dispatcher) -> APIRouter:
         if not models:
             return JSONResponse({"ok": False, "detail": "接口未返回任何模型，请手动填写模型名"})
         return {"ok": True, "models": models, "detail": f"获取到 {len(models)} 个模型，点击模型输入框选择"}
+
+    # ------------------------------------------------ 浏览器扫码登录
+    @router.post("/api/browser-login/start")
+    async def browser_login_start(request: Request) -> JSONResponse:
+        if not _authed(request):
+            return _unauthorized()
+        from app.browser import login_relay
+
+        body = await request.json()
+        relay = login_relay.get_login_relay()
+        ok = await relay.start(
+            str(body.get("platform") or ""),
+            phone=str(body.get("phone") or ""),
+            password=str(body.get("password") or ""),
+        )
+        if not ok:
+            return JSONResponse({"detail": relay.message or "不支持的平台/参数缺失"}, status_code=400)
+        return {"ok": True, "state": relay.state, "message": relay.message}
+
+    @router.post("/api/browser-login/code")
+    async def browser_login_code(request: Request) -> JSONResponse:
+        if not _authed(request):
+            return _unauthorized()
+        from app.browser import login_relay
+
+        body = await request.json()
+        relay = login_relay.get_login_relay()
+        if not await relay.submit_sms(str(body.get("code") or "")):
+            return JSONResponse({"detail": "当前不在等待验证码状态"}, status_code=400)
+        return {"ok": True}
+
+    @router.get("/api/browser-login/frame")
+    async def browser_login_frame(request: Request):
+        from fastapi.responses import Response
+
+        from app.browser import login_relay
+
+        if not _authed(request):
+            return _unauthorized()
+        relay = login_relay.get_login_relay()
+        return Response(
+            content=relay.frame_png or b"",
+            media_type="image/png",
+            headers={"Cache-Control": "no-store"},
+        )
+
+    @router.get("/api/browser-login/status")
+    async def browser_login_status(request: Request):
+        if not _authed(request):
+            return _unauthorized()
+        from app.browser import manager as bm
+        from app.browser import login_relay
+
+        relay = login_relay.get_login_relay()
+        return {
+            "state": relay.state,
+            "message": relay.message,
+            "logged": {name: bm.is_logged_in(name) for name in login_relay.LOGIN_TARGETS},
+        }
 
     # ------------------------------------------------ 连通性测试
     @router.post("/api/test")
@@ -400,5 +461,21 @@ async def _run_test(target: str, v: dict[str, str]) -> tuple[bool, str]:
             count = len((inner.get("data") or {}).get("list") or [])
             return True, f"接口可用，返回 {count} 条商品"
         return False, str(inner.get("message") or data)[:200]
+
+    if target == "browser":
+        from app.browser import manager as bm
+
+        try:
+            import playwright  # noqa: F401
+
+            playwright_ok = True
+        except ImportError:
+            playwright_ok = False
+        logged = [p for p in ("meituan", "douyin") if bm.is_logged_in(p)]
+        if not playwright_ok:
+            return False, "服务器未安装 Playwright/Chromium（镜像需包含浏览器）"
+        if not logged:
+            return False, "尚未扫码登录任何平台：在「浏览器登录」卡片发起美团扫码"
+        return True, f"已登录: {', '.join(logged)}（查询时用登录态浏览器抓取真实数据）"
 
     return False, f"未知测试目标：{target}"

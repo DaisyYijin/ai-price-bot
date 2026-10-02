@@ -134,3 +134,29 @@ def test_build_effective_prefers_real_when_configured():
     assert isinstance(providers[1], DataokeProvider)  # 配了大淘客密钥 → 真实源
     assert isinstance(providers[2], JdMock)  # 京东密钥为空 → 回落模拟
     assert providers[0].is_mock is True and providers[1].is_mock is False
+
+
+def test_build_effective_browser_meituan(monkeypatch, tmp_path):
+    """浏览器开关+已登录 → 美团用浏览器真实 Provider；未登录回落模拟。"""
+    from app.browser import manager as bm
+    from app.providers.browser_meituan import BrowserMeituanProvider
+
+    monkeypatch.setattr(bm, "DATA_DIR", tmp_path)
+    settings = _fake_settings(browser_enabled=True)
+    # 未登录 → 模拟
+    assert isinstance(provider_base.build_effective(settings)[0], MeituanMock)
+    # 已登录 → 浏览器真实源
+    bm.mark_logged_in("meituan")
+    providers = provider_base.build_effective(_fake_settings(browser_enabled=True))
+    assert isinstance(providers[0], BrowserMeituanProvider)
+    # 开关关闭时即使已登录也回落模拟
+    assert isinstance(provider_base.build_effective(_fake_settings(browser_enabled=False))[0], MeituanMock)
+
+
+async def test_browser_meituan_requires_login(monkeypatch, tmp_path):
+    from app.browser import manager as bm
+    from app.providers.browser_meituan import BrowserMeituanProvider
+
+    monkeypatch.setattr(bm, "DATA_DIR", tmp_path)
+    with pytest.raises(RuntimeError, match="未登录"):
+        await BrowserMeituanProvider().search("足疗")
