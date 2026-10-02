@@ -1,47 +1,17 @@
-# AI 比价机器人助手 —— Docker Compose 部署
-#
-# 启动:   docker compose up -d --build
-# 配置:   打开 http://服务器IP:2048/admin，账号密码为下方 ADMIN_USERNAME / ADMIN_PASSWORD（免首次注册）
-#         各平台密钥在网页后台填写（落盘 ./config，重建容器不丢）
-#         或不用面板，直接把配置写进 config/config.env 再 docker compose restart
-# 首次:   mkdir -p config data logs（宿主机预先建目录，避免 docker 自动建成 root 权限）
-# 终端体验: docker compose run --rm price-bot python -m app.cli
+# 改好 ADMIN_USERNAME / ADMIN_PASSWORD 后: docker compose up -d --build
+# 网页后台: http://服务器IP:2048/admin
 
 services:
   price-bot:
     build: .
-    image: ai-price-bot:latest        # 构建镜像命名，便于复用/导出/离线迁移
-    container_name: price-bot
-    restart: unless-stopped           # 崩溃或宿主机重启后自动拉起；管理后台「立即重启」也依赖它
-    init: true                        # 正确处理信号与子进程回收
-    stop_grace_period: 15s            # 退出前给钉钉线程/QQ长连接留收尾时间
+    restart: unless-stopped
     ports:
-      - "2048:2048"                   # 管理后台 + 企业微信回调；钉钉/QQ 仅出站连接
-      # 服务器有反向代理时建议只绑本机: "127.0.0.1:2048:2048"
+      - "2048:2048"
     volumes:
       - ./config:/app/config
       - ./data:/app/data
       - ./logs:/app/logs
     environment:
-      TZ: Asia/Shanghai               # 日志时间戳使用本地时区
-      ADMIN_USERNAME: admin           # 管理后台登录账号
-      ADMIN_PASSWORD: change-me       # 管理后台登录密码（改掉！），改完 docker compose up -d 生效
-      # 其余配置也可用环境变量直配（优先级高于 config/config.env），适合 CI/脚本注入:
-      # LLM_API_KEY: sk-xxx
-      # DINGTALK_ENABLED: "true"
-      # DINGTALK_CLIENT_ID: xxx
-      # DINGTALK_CLIENT_SECRET: xxx
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:2048/healthz', timeout=3).status == 200 else 1)"]
-      interval: 30s
-      timeout: 5s
-      start_period: 15s
-      retries: 3
-    logging:
-      driver: json-file               # 容器 stdout 日志轮转（访问日志在这里）
-      options:
-        max-size: "10m"
-        max-file: "3"
-    # 资源上限（按机器情况取消注释）
-    # mem_limit: 512m
-    # cpus: "1.0"
+      TZ: Asia/Shanghai
+      ADMIN_USERNAME: admin
+      ADMIN_PASSWORD: change-me
