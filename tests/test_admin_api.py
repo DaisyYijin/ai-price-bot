@@ -7,6 +7,16 @@ from app.admin import store
 from app.main import create_app
 
 
+@pytest.fixture(autouse=True)
+def _reset_login_lockout():
+    """登录锁定计数是模块级全局，用例间重置避免互相污染。"""
+    from app.admin import routes
+
+    routes._login_failures.clear()
+    yield
+    routes._login_failures.clear()
+
+
 @pytest.fixture()
 def client(tmp_path, monkeypatch):
     monkeypatch.setattr(store, "DATA_DIR", tmp_path)
@@ -86,3 +96,23 @@ def test_login_lockout_after_five_failures(client):
         client.post("/admin/api/login", json={"password": "nope"})
     resp = _login(client, "admin-pass-1")  # 正确密码也被锁定拦截
     assert resp.status_code == 429
+
+
+def test_env_password_mode(client, monkeypatch):
+    """ADMIN_PASSWORD 环境变量：免注册直接登录，优先于文件密码，禁止 setup。"""
+    monkeypatch.setenv("ADMIN_PASSWORD", "env-secret-9")
+    assert client.get("/admin/api/state").json() == {"password_set": True, "authenticated": False}
+    # 环境变量模式下禁止首次设置
+    assert client.post("/admin/api/setup", json={"password": "whatever-1"}).status_code == 400
+    # 正确的环境变量密码可登录，错误密码被拒
+    assert _login(client, "env-secret-9").status_code == 200
+    client.post("/admin/api/logout")
+    assert _login(client, "wrong").status_code == 401
+
+
+def test_env_password_overrides_file_password(client, monkeypatch):
+    client.post("/admin/api/setup", json={"password": "file-based-1"})
+    client.post("/admin/api/logout")
+    monkeypatch.setenv("ADMIN_PASSWORD", "env-wins-7")
+    assert _login(client, "file-based-1").status_code == 401
+    assert _login(client, "env-wins-7").status_code == 200

@@ -1,7 +1,8 @@
 # AI 比价机器人助手 —— Docker Compose 部署
 #
 # 启动:   docker compose up -d --build
-# 配置:   打开 http://服务器IP:2048/admin 网页后台填写各平台密钥（落盘 ./config，重建容器不丢）
+# 配置:   打开 http://服务器IP:2048/admin，密码为下方 ADMIN_PASSWORD 环境变量（免首次注册）
+#         各平台密钥在网页后台填写（落盘 ./config，重建容器不丢）
 #         或不用面板，直接把配置写进 config/config.env 再 docker compose restart
 # 首次:   mkdir -p config data logs（宿主机预先建目录，避免 docker 自动建成 root 权限）
 # 终端体验: docker compose run --rm price-bot python -m app.cli
@@ -23,7 +24,8 @@ services:
       - ./logs:/app/logs
     environment:
       TZ: Asia/Shanghai               # 日志时间戳使用本地时区
-      # 环境变量直配也可（优先级高于 data/config.env），适合 CI/脚本注入:
+      ADMIN_PASSWORD: change-me       # 管理后台登录密码（改掉！），生效方式: 改完 docker compose up -d
+      # 其余配置也可用环境变量直配（优先级高于 config/config.env），适合 CI/脚本注入:
       # LLM_API_KEY: sk-xxx
       # DINGTALK_ENABLED: "true"
       # DINGTALK_CLIENT_ID: xxx

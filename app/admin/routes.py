@@ -84,6 +84,8 @@ def create_admin_router(dispatcher: Dispatcher) -> APIRouter:
 
     @router.post("/api/setup")
     async def setup(request: Request) -> JSONResponse:
+        if store.env_admin_password():
+            return JSONResponse({"detail": "密码已由环境变量 ADMIN_PASSWORD 指定，直接登录即可"}, status_code=400)
         if store.password_is_set():
             return JSONResponse({"detail": "密码已设置，请直接登录"}, status_code=400)
         body = await request.json()

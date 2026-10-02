@@ -8,6 +8,7 @@
 
 import hashlib
 import hmac
+import os
 import secrets
 import time
 from pathlib import Path
@@ -15,6 +16,11 @@ from pathlib import Path
 from app.config import CONFIG_DIR, DATA_DIR
 
 SESSION_TTL_SECONDS = 7 * 24 * 3600
+
+
+def env_admin_password() -> str:
+    """容器环境变量 ADMIN_PASSWORD 指定的管理密码（优先于文件密码）。"""
+    return os.environ.get("ADMIN_PASSWORD", "").strip()
 
 
 # ---------------------------------------------------------------- 配置文件
@@ -73,7 +79,7 @@ def hash_password(password: str) -> str:
 
 
 def password_is_set(data_dir: Path | None = None) -> bool:
-    return _password_path(data_dir).exists()
+    return bool(env_admin_password()) or _password_path(data_dir).exists()
 
 
 def set_password(password: str, data_dir: Path | None = None) -> None:
@@ -83,6 +89,9 @@ def set_password(password: str, data_dir: Path | None = None) -> None:
 
 
 def verify_password(password: str, data_dir: Path | None = None) -> bool:
+    env_password = env_admin_password()
+    if env_password:  # 环境变量指定密码时直接比对，不读文件
+        return hmac.compare_digest(password.encode(), env_password.encode())
     path = _password_path(data_dir)
     if not path.exists():
         return False
