@@ -1,11 +1,41 @@
+# AI 比价机器人助手 —— Docker Compose 部署
+#
+# 启动:   docker compose up -d --build
+# 配置:   打开 http://服务器IP:8000/admin 网页后台填写各平台密钥（落盘 ./data，重建容器不丢）
+#         或不用面板，直接把配置写进 data/config.env 再 docker compose restart
+# 终端体验: docker compose run --rm price-bot python -m app.cli
+
 services:
   price-bot:
     build: .
+    image: ai-price-bot:latest        # 构建镜像命名，便于复用/导出/离线迁移
     container_name: price-bot
-    restart: unless-stopped   # 管理后台的「重启」依赖此策略自动拉起
+    restart: unless-stopped           # 崩溃或宿主机重启后自动拉起；管理后台「立即重启」也依赖它
+    init: true                        # 正确处理信号与子进程回收
+    stop_grace_period: 15s            # 退出前给钉钉线程/QQ长连接留收尾时间
     ports:
-      - "8000:8000"   # 网页管理后台 + 企业微信回调；钉钉/QQ 仅出站连接
+      - "8000:8000"                   # 网页管理后台 + 企业微信回调；钉钉/QQ 仅出站连接不需要端口
+      # 服务器有反向代理时建议只绑本机: "127.0.0.1:8000:8000"
     volumes:
-      - ./data:/app/data   # 管理后台写入的配置/密码，落宿主机持久化
-    # 说明：各平台密钥推荐在 http://服务器:8000/admin 网页后台填写；
-    # 也可不用面板，直接把配置写进 data/config.env 再 up。
+      - ./data:/app/data              # 管理后台配置/密码持久化（必需，删容器不丢配置）
+    environment:
+      TZ: Asia/Shanghai               # 日志时间戳使用本地时区
+      # 环境变量直配也可（优先级高于 data/config.env），适合 CI/脚本注入:
+      # LLM_API_KEY: sk-xxx
+      # DINGTALK_ENABLED: "true"
+      # DINGTALK_CLIENT_ID: xxx
+      # DINGTALK_CLIENT_SECRET: xxx
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=3).status == 200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    logging:
+      driver: json-file               # 日志轮转，防止长期运行撑爆磁盘
+      options:
+        max-size: "10m"
+        max-file: "3"
+    # 资源上限（按机器情况取消注释）
+    # mem_limit: 512m
+    # cpus: "1.0"
