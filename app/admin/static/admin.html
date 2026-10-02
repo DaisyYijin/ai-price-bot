@@ -52,6 +52,10 @@
   button:hover { filter: brightness(1.12); }
   button.ghost { background: transparent; border: 1px solid var(--line); color: var(--muted); }
   button.small { padding: 6px 14px; font-size: 13px; }
+  select.preset {
+    background: #101627; color: var(--text); border: 1px solid var(--line);
+    border-radius: 8px; padding: 6px 10px; font-size: 13px; outline: none;
+  }
   .bar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
   .hint { font-size: 12px; color: var(--muted); }
   .status { font-size: 13px; margin-left: auto; }
@@ -79,6 +83,7 @@
 </head>
 <body>
 <div id="toast"></div>
+<datalist id="llm-models"></datalist>
 
 <!-- 视图：首次设置账号密码 -->
 <div id="view-setup" class="center card hidden">
@@ -118,6 +123,24 @@
 <script>
 const $ = id => document.getElementById(id);
 let FIELD_META = [];
+
+// 常用厂商预设：选中即填入 API 地址与默认模型
+const LLM_PRESETS = [
+  ["", "选择厂商自动填入…", ""],
+  ["https://api.deepseek.com", "DeepSeek", "deepseek-chat"],
+  ["https://open.bigmodel.cn/api/paas/v4", "智谱 GLM", "glm-4.7"],
+  ["https://api.moonshot.cn/v1", "Kimi", "moonshot-v1-8k"],
+  ["https://dashscope.aliyuncs.com/compatible-mode/v1", "通义千问", "qwen-plus"],
+  ["https://api.openai.com/v1", "OpenAI", "gpt-4o-mini"],
+  ["http://127.0.0.1:11434/v1", "Ollama 本地", ""],
+];
+
+// 各平台填写指引（显示在分区卡片顶部）
+const SECTION_HINTS = {
+  wecom: "① work.weixin.qq.com → 应用管理 → 创建自建应用；② Corp ID 在「我的企业」页，Agent ID 与 Secret 在应用详情页；③ 应用「接收消息」→ 设置API接收 → 生成 Token 与 EncodingAESKey，URL 填 http(s)://你的公网域名:2048/webhook/wecom",
+  dingtalk: "① open-dev.dingtalk.com → 应用开发 → 创建企业内部应用；② 「添加应用能力」→ 机器人，消息接收模式选 Stream 模式；③ Client ID / Client Secret 在「凭证与基础信息」页（无需公网 IP）",
+  qq: "① q.qq.com 注册并创建机器人（个人可注册）；② App ID 与 Client Secret 在机器人「开发设置」页；③ 群里使用需 @机器人（无需公网 IP）",
+};
 
 function toast(msg, ok = true) {
   const el = $("toast");
@@ -183,9 +206,20 @@ async function loadConfig() {
   for (const [section, fields] of Object.entries(bySection)) {
     const card = document.createElement("div");
     card.className = "card";
-    card.innerHTML = `<h2>${data.sections[section] || section}
-      ${testable[section] ? `<button class="ghost small" onclick="runTest('${section}', this)">${testable[section]}</button>
-      <span class="status" id="test-${section}"></span>` : ""}</h2>`;
+    let header = `<h2>${data.sections[section] || section}`;
+    if (section === "llm") {
+      const options = LLM_PRESETS.map(([base, label]) => `<option value="${base}">${label}</option>`).join("");
+      header += ` <select class="preset" id="llm-preset" onchange="applyPreset(this)">${options}</select>
+        <button class="ghost small" onclick="fetchModels(this)">获取模型</button>`;
+    }
+    if (testable[section]) {
+      header += ` <button class="ghost small" onclick="runTest('${section}', this)">${testable[section]}</button>`;
+    }
+    header += ` <span class="status" id="test-${section}"></span></h2>`;
+    if (SECTION_HINTS[section]) {
+      header += `<p class="hint" style="margin:-6px 0 14px">${SECTION_HINTS[section]}</p>`;
+    }
+    card.innerHTML = header;
     for (const f of fields) {
       const row = document.createElement("div");
       row.className = "row";
@@ -196,13 +230,49 @@ async function loadConfig() {
         row.innerHTML = `<label>${f.label}</label>
           <input type="password" id="f-${f.key}" placeholder="${f.set ? "已配置，留空保持不变" : "未配置"}" autocomplete="new-password">`;
       } else {
+        const listAttr = f.key === "LLM_MODEL" ? ' list="llm-models"' : "";
         row.innerHTML = `<label>${f.label}</label>
-          <input type="text" id="f-${f.key}" value="${String(f.value).replace(/"/g, "&quot;")}">`;
+          <input type="text" id="f-${f.key}"${listAttr} value="${String(f.value).replace(/"/g, "&quot;")}">`;
       }
       card.appendChild(row);
     }
     sectionsEl.appendChild(card);
   }
+}
+
+function applyPreset(sel) {
+  if (!sel.value) return;
+  const preset = LLM_PRESETS.find(([base]) => base === sel.value);
+  if (!preset) return;
+  $("f-LLM_BASE_URL").value = preset[0];
+  if (preset[2]) $("f-LLM_MODEL").value = preset[2];
+  toast(`已填入 ${preset[1]} 的地址，填好 Key 后可点「获取模型」在线拉取列表`);
+}
+
+async function fetchModels(btn) {
+  const status = $("test-llm");
+  status.textContent = "⟳ 获取中…"; status.className = "status wait";
+  btn.disabled = true;
+  try {
+    const data = await api("models", { values: collectValues(true) });
+    if (!data.ok) {
+      status.textContent = "✗ " + (data.detail || "获取失败"); status.className = "status bad";
+      return;
+    }
+    const list = $("llm-models");
+    list.innerHTML = "";
+    for (const m of data.models) {
+      const option = document.createElement("option");
+      option.value = m;
+      list.appendChild(option);
+    }
+    status.textContent = `✓ ${data.detail}`; status.className = "status ok";
+    const modelInput = $("f-LLM_MODEL");
+    modelInput.focus();
+    try { modelInput.showPicker(); } catch (e) {}
+  } catch (e) {
+    status.textContent = "✗ " + e.message; status.className = "status bad";
+  } finally { btn.disabled = false; }
 }
 
 function collectValues(includeEmptySecrets = false) {

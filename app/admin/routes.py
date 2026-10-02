@@ -197,6 +197,26 @@ def create_admin_router(dispatcher: Dispatcher) -> APIRouter:
         )
         return {"saved": True, "restart_required": platform_changed}
 
+    # ------------------------------------------------ 模型列表
+    @router.post("/api/models")
+    async def list_models(request: Request) -> JSONResponse:
+        """按用户填写的 base_url + key 在线拉取 OpenAI 兼容的 /models 列表。"""
+        if not _authed(request):
+            return _unauthorized()
+        body = await request.json()
+        effective = _effective_values(body.get("values") or {})
+        base_url = effective.get("LLM_BASE_URL") or "https://api.deepseek.com"
+        api_key = effective.get("LLM_API_KEY")
+        if not api_key:
+            return JSONResponse({"detail": "请先填写 API Key"}, status_code=400)
+        try:
+            models = await _fetch_models(base_url, api_key)
+        except Exception as exc:  # noqa: BLE001 — 失败原因直接回显给用户
+            return JSONResponse({"ok": False, "detail": f"获取失败：{exc}"})
+        if not models:
+            return JSONResponse({"ok": False, "detail": "接口未返回任何模型，请手动填写模型名"})
+        return {"ok": True, "models": models, "detail": f"获取到 {len(models)} 个模型，点击模型输入框选择"}
+
     # ------------------------------------------------ 连通性测试
     @router.post("/api/test")
     async def test_connectivity(request: Request) -> JSONResponse:
@@ -266,6 +286,18 @@ def _effective_values(payload_values: dict) -> dict[str, str]:
             else:
                 effective[env_key] = ""
     return effective
+
+
+async def _fetch_models(base_url: str, api_key: str) -> list[str]:
+    """调用 OpenAI 兼容的 GET {base_url}/models，返回模型 id 列表。"""
+    base = base_url.rstrip("/")
+    async with httpx.AsyncClient(timeout=15) as client:
+        resp = await client.get(f"{base}/models", headers={"Authorization": f"Bearer {api_key}"})
+    resp.raise_for_status()
+    data = resp.json()
+    return sorted(
+        item["id"] for item in data.get("data", []) if isinstance(item, dict) and item.get("id")
+    )
 
 
 async def _run_test(target: str, v: dict[str, str]) -> tuple[bool, str]:

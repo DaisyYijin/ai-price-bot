@@ -118,3 +118,30 @@ def test_env_password_overrides_file_password(client, monkeypatch):
     monkeypatch.setenv("ADMIN_PASSWORD", "env-wins-7")
     assert _login(client, "file-based-1").status_code == 401
     assert _login(client, "env-wins-7", username="root").status_code == 200
+
+
+def test_models_endpoint(client, monkeypatch):
+    """在线获取模型列表：需登录、缺 Key 提示、成功返回列表。"""
+    from app.admin import routes as routes_module
+
+    client.post("/admin/api/setup", json={"username": "admin", "password": "admin-pass-1"})
+
+    async def fake_fetch(base_url, api_key):
+        assert base_url == "https://api.deepseek.com"
+        assert api_key == "sk-x"
+        return ["deepseek-chat", "deepseek-reasoner"]
+
+    monkeypatch.setattr(routes_module, "_fetch_models", fake_fetch)
+    resp = client.post(
+        "/admin/api/models",
+        json={"values": {"LLM_BASE_URL": "https://api.deepseek.com", "LLM_API_KEY": "sk-x"}},
+    ).json()
+    assert resp["ok"] is True
+    assert resp["models"] == ["deepseek-chat", "deepseek-reasoner"]
+
+    # 缺少 Key → 400
+    assert client.post("/admin/api/models", json={"values": {}}).status_code == 400
+
+
+def test_models_endpoint_requires_auth(client):
+    assert client.post("/admin/api/models", json={"values": {}}).status_code == 401
