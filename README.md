@@ -26,15 +26,29 @@ python -m app.cli        # 终端对话：说「我想看流浪地球3」
 
 ## Docker 部署
 
+**方式一：直接拉取镜像（推荐，无需克隆源码）**
+
 ```bash
-mkdir -p config data logs    # 预先建目录，避免 docker 自动创建成 root 权限
-# 编辑 docker-compose.yml，把 ADMIN_USERNAME / ADMIN_PASSWORD 改成你的管理后台账号密码
+mkdir price-bot && cd price-bot
+curl -O https://raw.githubusercontent.com/DaisyYijin/ai-price-bot/master/docker-compose.yml
+# 编辑 docker-compose.yml，把 ADMIN_USERNAME / ADMIN_PASSWORD 改成你的账号密码
+mkdir -p config data logs
+docker compose up -d        # 首次自动拉取镜像；更新: docker compose pull && docker compose up -d
+```
+
+**方式二：从源码构建**（本地开发或自定义修改后）
+
+```bash
+git clone https://github.com/DaisyYijin/ai-price-bot.git && cd ai-price-bot
+mkdir -p config data logs
+# 编辑 docker-compose.yml：注释 image 行、放开 build 行，再执行
 docker compose up -d --build
 ```
 
 打开 `http://服务器IP:2048/admin`，用 `ADMIN_USERNAME` / `ADMIN_PASSWORD` 里设置的
 账号密码直接登录（免首次注册），在网页里填写各平台密钥 →
 保存（大模型/比价设置立即生效；平台接入点「立即重启」，容器自动拉起）。
+镜像由 GitHub Actions 自动构建发布（`ghcr.io/daisyyijin/ai-price-bot`），支持 amd64/arm64。
 
 - **钉钉 / QQ**：出站 WebSocket 长连接，部署在任何内网服务器即可，无需公网 IP。
 - **企业微信**：需要公网可达的回调地址，本地调试可用 frp / 云函数 / 服务器反代，

@@ -1,9 +1,12 @@
-# 改好 ADMIN_USERNAME / ADMIN_PASSWORD 后: docker compose up -d --build
+# 直接拉取镜像部署，无需克隆源码:
+#   1. 改好 ADMIN_USERNAME / ADMIN_PASSWORD
+#   2. mkdir -p config data logs
+#   3. docker compose up -d     （首次会自动拉取镜像，之后 docker compose pull 更新）
 # 网页后台: http://服务器IP:2048/admin
 
 services:
   price-bot:
-    build: .
+    image: ghcr.io/daisyyijin/ai-price-bot:latest
     restart: unless-stopped
     ports:
       - "2048:2048"
@@ -15,3 +18,5 @@ services:
       TZ: Asia/Shanghai
       ADMIN_USERNAME: admin
       ADMIN_PASSWORD: change-me
+    # 想从源码构建: 注释掉上面的 image，取消下行注释，docker compose up -d --build
+    # build: .
