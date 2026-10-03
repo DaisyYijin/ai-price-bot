@@ -48,6 +48,7 @@ async def search_taobao(keyword: str) -> list[Quote]:
                         platform="淘宝",
                         title=str(item.get("title") or keyword).strip(),
                         price=price,
+                        original_price=float(item.get("original") or 0) or None,
                         url=None,
                         remark="真实抓取·实验",
                     )

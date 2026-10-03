@@ -15,6 +15,13 @@ class Quote(BaseModel):
     url: str | None = None
     remark: str | None = None
 
+    @property
+    def discount(self) -> float | None:
+        """折扣（如 7.5 = 七五折）；无原价时为 None。"""
+        if self.original_price and self.original_price > self.price > 0:
+            return round(self.price / self.original_price * 10, 1)
+        return None
+
     def format(self) -> str:
         orig = f"（原价¥{self.original_price:g}）" if self.original_price else ""
         remark = f" {self.remark}" if self.remark else ""

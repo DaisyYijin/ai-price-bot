@@ -1,4 +1,4 @@
-"""compare_prices 工具：并行查询所有启用的价格源并汇总。"""
+"""compare_prices 工具：并行查询所有启用的价格源，按用户意图排序并汇总。"""
 
 import asyncio
 import logging
@@ -10,12 +10,19 @@ from app.providers import base as provider_base
 logger = logging.getLogger(__name__)
 
 CATEGORIES = ["电影票", "外卖", "数码", "图书", "服装", "美妆", "综合"]
+SORT_MODES = ["优惠幅度", "价格"]
 
-_QUOTE_LINE = "【{platform}】{title} —— ¥{price}{original}{url}"
+_QUOTE_LINE = "【{platform}】{title} —— ¥{price}{original}{discount}{url}"
 
 
-async def execute_compare_prices(keyword: str, category: str = "综合") -> str:
-    """供 LLM function calling 调用的比价实现，返回给模型阅读的文本。"""
+async def execute_compare_prices(
+    keyword: str, category: str = "综合", sort_by: str = "价格", city: str = ""
+) -> str:
+    """供 LLM function calling 调用的比价实现，返回给模型阅读的文本。
+
+    sort_by：用户要「优惠最大/折扣」按 优惠幅度；要「最便宜/最低价」按 价格。
+    city：用户提到的城市（浏览器数据源按登录/服务器所在城市，city 仅用于提示）。
+    """
     settings = get_settings()
     providers = provider_base.build_effective(settings)
     if not providers:
@@ -38,33 +45,59 @@ async def execute_compare_prices(keyword: str, category: str = "综合") -> str:
             continue
         all_quotes.extend(result)
         chunks.append(
-            "\n".join(
-                _QUOTE_LINE.format(
-                    platform=q.platform,
-                    title=q.title,
-                    price=f"{q.price:g}",
-                    original=f"（原价 ¥{q.original_price:g}）" if q.original_price else "",
-                    url=f"\n    链接：{q.url}" if q.url else "",
-                )
-                for q in result
-            )
+            "\n".join(_format_quote(q) for q in result)
         )
 
-    summary = ""
-    if all_quotes:
-        best = min(all_quotes, key=lambda q: q.price)
-        summary = f"\n\n当前最低价：{best.platform} ¥{best.price:g}（{best.title}）"
+    header = f"关键词「{keyword}」（品类：{category}）"
+    if city:
+        header += f" 目标城市：{city}"
+
+    summary = _rank_summary(all_quotes, sort_by)
 
     mock_note = (
-        "\n\n注：美团/抖音等未接入真实数据源的平台为模拟报价，仅演示用；"
-        "标注「真实报价」的来自联盟 API。"
+        "\n\n注：标注「真实」的来自真实抓取/联盟API；其余平台为模拟报价（未接入真实数据源）。"
         if any(getattr(p, "is_mock", False) for p in providers)
         else ""
     )
 
     return (
-        f"关键词「{keyword}」（品类：{category}）各平台报价如下：\n\n"
+        f"{header}，各平台报价如下：\n\n"
         + "\n\n".join(chunks)
         + summary
         + mock_note
     )
+
+
+def _format_quote(q: Quote) -> str:
+    original = f"（原价¥{q.original_price:g}）" if q.original_price else ""
+    discount = f" 约{q.discount:g}折" if q.discount else ""
+    url = f"\n    链接：{q.url}" if q.url else ""
+    return _QUOTE_LINE.format(
+        platform=q.platform, title=q.title, price=f"{q.price:g}",
+        original=original, discount=discount, url=url,
+    )
+
+
+def _rank_summary(all_quotes: list[Quote], sort_by: str) -> str:
+    """生成排序结论：按优惠幅度或价格排出前三并给出推荐。"""
+    if not all_quotes:
+        return ""
+    if sort_by == "优惠幅度":
+        with_discount = [q for q in all_quotes if q.discount]
+        if not with_discount:
+            best = min(all_quotes, key=lambda q: q.price)
+            return (
+                f"\n\n无折扣信息可比，按最低价：{best.platform} ¥{best.price:g}（{best.title}）"
+            )
+        ranked = sorted(with_discount, key=lambda q: q.discount)
+        lines = [
+            f"{i}. {q.platform}｜{q.title}｜¥{q.price:g}（原¥{q.original_price:g}，约{q.discount:g}折）"
+            for i, q in enumerate(ranked[:3], 1)
+        ]
+        best = ranked[0]
+        return (
+            "\n\n优惠幅度前3：\n" + "\n".join(lines)
+            + f"\n推荐：{best.platform}「{best.title}」，¥{best.price:g} 约{best.discount:g}折，优惠最大"
+        )
+    best = min(all_quotes, key=lambda q: q.price)
+    return f"\n\n当前最低价：{best.platform} ¥{best.price:g}（{best.title}）"

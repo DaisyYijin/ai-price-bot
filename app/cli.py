@@ -20,7 +20,8 @@ CATEGORY_HINTS: list[tuple[str, str]] = [
 ]
 
 INTENT_RE = re.compile(
-    r"(?:我想看|我想买|帮我查|查一下|比价|多少钱|看看|买一个|想看)\s*(?:一部)?(.+?)(?:的)?(?:价格|报价|多少钱|票|在哪买|便宜)?[?？!！。]*$",
+    r"(?:我想看|我想买|帮我查|查一下|比价|多少钱|看看|买一个|想看)\s*(?:一部)?(.+?)"
+    r"(?:，|,|的)?(?:哪个?.+?|哪家.+?|价格|报价|多少钱|票|在哪买|便宜)?[?？!！。]*$",
     re.IGNORECASE,
 )
 
@@ -36,7 +37,8 @@ async def rule_based_reply(text: str) -> str | None:
     keyword = match.group(1).strip() if match else ""
     if not keyword:
         return None
-    return await execute_compare_prices(keyword, category)
+    sort_by = "优惠幅度" if re.search(r"优惠|折扣|划算|便宜", text) else "价格"
+    return await execute_compare_prices(keyword, category, sort_by)
 
 
 async def chat_loop() -> None:
