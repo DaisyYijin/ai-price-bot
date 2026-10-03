@@ -329,6 +329,44 @@ def create_admin_router(dispatcher: Dispatcher) -> APIRouter:
             "logged": {name: bm.is_logged_in(name) for name in login_relay.LOGIN_TARGETS},
         }
 
+    # ------------------------------------------------ 模型自动识别
+    @router.post("/api/detect-llm")
+    async def detect_llm(request: Request) -> JSONResponse:
+        """只填 API Key 时自动识别厂商：逐个探测候选厂商的 /models 接口。"""
+        if not _authed(request):
+            return _unauthorized()
+        body = await request.json()
+        api_key = str(body.get("api_key") or "").strip()
+        base_url = str(body.get("base_url") or "").strip()
+        if not api_key:
+            return JSONResponse({"detail": "请先填写 API Key"}, status_code=400)
+
+        candidates = [(base_url, "自定义", "")] if base_url else [
+            ("https://api.deepseek.com", "DeepSeek", "deepseek-chat"),
+            ("https://api.moonshot.cn/v1", "Kimi", ""),
+            ("https://open.bigmodel.cn/api/paas/v4", "智谱 GLM", ""),
+            ("https://dashscope.aliyuncs.com/compatible-mode/v1", "通义千问", ""),
+            ("https://api.openai.com/v1", "OpenAI", ""),
+        ]
+        for url, provider, preferred in candidates:
+            try:
+                models = await _fetch_models(url, api_key)
+            except Exception:
+                continue
+            if not models:
+                continue
+            return {
+                "ok": True,
+                "provider": provider,
+                "base_url": url,
+                "models": models,
+                "recommended": preferred if preferred in models else _recommend_model(provider, models),
+                "detail": f"识别为 {provider}，可用模型 {len(models)} 个",
+            }
+        return JSONResponse(
+            {"ok": False, "detail": "未识别出厂商：Key 无效或不在支持列表（DeepSeek/Kimi/智谱/通义/OpenAI），可手动填 API 地址"},
+        )
+
     # ------------------------------------------------ 连通性测试
     @router.post("/api/test")
     async def test_connectivity(request: Request) -> JSONResponse:
@@ -398,6 +436,22 @@ def _effective_values(payload_values: dict) -> dict[str, str]:
             else:
                 effective[env_key] = ""
     return effective
+
+
+def _recommend_model(provider: str, models: list[str]) -> str:
+    """从模型列表里挑一个默认推荐：优先常见主力型号关键词，再取字典序首个。"""
+    preferences = {
+        "DeepSeek": ("deepseek-chat", "deepseek-reasoner"),
+        "Kimi": ("moonshot-v1-8k", "kimi"),
+        "智谱 GLM": ("glm-4", "glm-3"),
+        "通义千问": ("qwen-plus", "qwen-turbo", "qwen-max"),
+        "OpenAI": ("gpt-4o-mini", "gpt-4o", "gpt-4.1-mini"),
+    }.get(provider, ())
+    for preferred in preferences:
+        for model in models:
+            if model == preferred or preferred in model:
+                return model
+    return sorted(models)[0]
 
 
 async def _fetch_models(base_url: str, api_key: str) -> list[str]:

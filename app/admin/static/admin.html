@@ -7,86 +7,82 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%92%B0%3C/text%3E%3C/svg%3E">
 <style>
   :root {
-    --bg: #0f1420; --card: #1a2233; --line: #2a3550; --text: #e6ecff;
-    --muted: #8b97b8; --accent: #4f7cff; --ok: #2fbf71; --bad: #ff5d5d;
+    --bg:#0f1420; --card:#1a2233; --line:#2a3550; --text:#e6ecff;
+    --muted:#8b97b8; --accent:#4f7cff; --ok:#2fbf71; --bad:#ff5d5d;
+    --input:#101627; --chip:#101627;
   }
-  * { box-sizing: border-box; margin: 0; }
+  html[data-theme="light"] {
+    --bg:#f3f5f9; --card:#ffffff; --line:#e3e8f2; --text:#1d2433;
+    --muted:#66708a; --accent:#3f6cf0; --ok:#149a5a; --bad:#e03131;
+    --input:#f8fafd; --chip:#f0f3fb;
+  }
+  * { box-sizing:border-box; margin:0; }
   body {
-    background: var(--bg); color: var(--text); min-height: 100vh;
-    font: 15px/1.6 "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
-    display: flex; flex-direction: column; align-items: center; padding: 32px 16px;
+    background:var(--bg); color:var(--text); min-height:100vh;
+    font:15px/1.6 "Segoe UI","Microsoft YaHei",system-ui,sans-serif;
   }
-  h1 { font-size: 20px; margin-bottom: 4px; }
-  .sub { color: var(--muted); font-size: 13px; margin-bottom: 28px; }
+  .wrap { max-width:860px; margin:0 auto; padding:18px 14px 40px; }
+  .topbar { display:flex; align-items:center; gap:10px; margin-bottom:14px; }
+  .topbar h1 { font-size:18px; flex:1; }
+  .topbar button { background:var(--chip); color:var(--muted); border:1px solid var(--line);
+    border-radius:8px; padding:6px 12px; font-size:13px; cursor:pointer; }
+  .tabs { display:flex; gap:6px; overflow-x:auto; margin-bottom:16px; padding-bottom:2px; }
+  .tabs button {
+    background:transparent; color:var(--muted); border:1px solid transparent;
+    border-radius:99px; padding:7px 15px; font-size:14px; cursor:pointer; white-space:nowrap;
+  }
+  .tabs button.active { background:var(--card); color:var(--text); border-color:var(--line); }
   .card {
-    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
-    padding: 22px; width: 100%; max-width: 760px; margin-bottom: 18px;
+    background:var(--card); border:1px solid var(--line); border-radius:12px;
+    padding:20px; margin-bottom:14px;
   }
-  .card h2 { font-size: 16px; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
-  .card h2 .tag { font-size: 11px; color: var(--ok); border: 1px solid var(--ok);
-    border-radius: 99px; padding: 0 8px; }
-  .row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
-  .row label { width: 190px; color: var(--muted); font-size: 13px; flex-shrink: 0; }
+  .card h2 { font-size:15px; margin-bottom:12px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .row { display:flex; align-items:center; gap:12px; margin-bottom:12px; }
+  .row label { width:180px; color:var(--muted); font-size:13px; flex-shrink:0; }
   input[type=text], input[type=password] {
-    flex: 1; background: #101627; color: var(--text); border: 1px solid var(--line);
-    border-radius: 8px; padding: 8px 12px; font-size: 14px; outline: none;
+    flex:1; background:var(--input); color:var(--text); border:1px solid var(--line);
+    border-radius:8px; padding:8px 12px; font-size:14px; outline:none; min-width:0;
   }
-  input:focus { border-color: var(--accent); }
-  input::placeholder { color: #55618a; }
-  .switch { position: relative; width: 44px; height: 24px; flex-shrink: 0; }
-  .switch input { display: none; }
-  .switch span {
-    position: absolute; inset: 0; background: #2a3550; border-radius: 99px;
-    transition: .2s; cursor: pointer;
-  }
-  .switch span::after {
-    content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px;
-    background: #fff; border-radius: 50%; transition: .2s;
-  }
-  .switch input:checked + span { background: var(--accent); }
-  .switch input:checked + span::after { left: 23px; }
-  button {
-    background: var(--accent); color: #fff; border: none; border-radius: 8px;
-    padding: 9px 20px; font-size: 14px; cursor: pointer;
-  }
-  button:hover { filter: brightness(1.12); }
-  button.ghost { background: transparent; border: 1px solid var(--line); color: var(--muted); }
-  button.small { padding: 6px 14px; font-size: 13px; }
-  select.preset {
-    background: #101627; color: var(--text); border: 1px solid var(--line);
-    border-radius: 8px; padding: 6px 10px; font-size: 13px; outline: none;
-  }
-  .bar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-  .hint { font-size: 12px; color: var(--muted); }
-  .status { font-size: 13px; margin-left: auto; }
-  .status.ok { color: var(--ok); } .status.bad { color: var(--bad); }
-  .status.wait { color: var(--muted); }
-  #toast {
-    position: fixed; top: 18px; left: 50%; transform: translateX(-50%) translateY(-80px);
-    background: var(--card); border: 1px solid var(--line); color: var(--text);
-    border-radius: 10px; padding: 10px 22px; transition: .25s; z-index: 9; font-size: 14px;
-  }
-  #toast.show { transform: translateX(-50%) translateY(0); }
-  #toast.ok { border-color: var(--ok); } #toast.bad { border-color: var(--bad); }
-  .banner {
-    display: none; background: #3a2b12; border: 1px solid #a97e2f; color: #ffd98a;
-    border-radius: 10px; padding: 10px 16px; margin-bottom: 16px; max-width: 760px;
-    width: 100%; font-size: 13px; align-items: center; gap: 12px;
-  }
-  .banner.show { display: flex; }
-  .center { display: flex; flex-direction: column; justify-content: center;
-    min-height: 60vh; max-width: 380px; }
-  .hidden { display: none !important; }
-  .spin { display: inline-block; animation: rot 1s linear infinite; }
-  @keyframes rot { to { transform: rotate(360deg); } }
-  #login-modal {
-    display: none; position: fixed; inset: 0; background: rgba(5,8,15,.8); z-index: 8;
-    align-items: center; justify-content: center; flex-direction: column; gap: 14px;
-  }
-  #login-modal.show { display: flex; }
-  #login-modal img {
-    background: #fff; border-radius: 10px; max-width: 90vw; max-height: 70vh;
-  }
+  input:focus { border-color:var(--accent); }
+  input::placeholder { color:var(--muted); opacity:.7; }
+  .switch { position:relative; width:44px; height:24px; flex-shrink:0; }
+  .switch input { display:none; }
+  .switch span { position:absolute; inset:0; background:var(--line); border-radius:99px; transition:.2s; cursor:pointer; }
+  .switch span::after { content:""; position:absolute; top:3px; left:3px; width:18px; height:18px; background:#fff; border-radius:50%; transition:.2s; }
+  .switch input:checked + span { background:var(--accent); }
+  .switch input:checked + span::after { left:23px; }
+  button.primary { background:var(--accent); color:#fff; border:none; border-radius:8px; padding:9px 20px; font-size:14px; cursor:pointer; }
+  button.primary:hover { filter:brightness(1.1); }
+  button.ghost { background:transparent; border:1px solid var(--line); color:var(--muted); border-radius:8px; padding:8px 16px; font-size:13px; cursor:pointer; }
+  button.small { padding:6px 13px; font-size:13px; }
+  .hint { font-size:12.5px; color:var(--muted); }
+  .bar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .status { font-size:13px; margin-left:auto; }
+  .status.ok { color:var(--ok); } .status.bad { color:var(--bad); } .status.wait { color:var(--muted); }
+  .dash-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:12px; }
+  .dash-item { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; }
+  .dash-item h3 { font-size:14px; margin-bottom:8px; display:flex; align-items:center; gap:6px; }
+  .dash-item .state { font-size:13px; margin-bottom:10px; line-height:1.8; }
+  .dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; background:var(--bad); }
+  .dot.on { background:var(--ok); }
+  #toast { position:fixed; top:16px; left:50%; transform:translateX(-50%) translateY(-90px);
+    background:var(--card); border:1px solid var(--line); color:var(--text);
+    border-radius:10px; padding:10px 22px; transition:.25s; z-index:9; font-size:14px; }
+  #toast.show { transform:translateX(-50%) translateY(0); }
+  #toast.ok { border-color:var(--ok); } #toast.bad { border-color:var(--bad); }
+  .banner { display:none; background:rgba(217,119,6,.12); border:1px solid rgba(217,119,6,.55);
+    color:#d97706; border-radius:10px; padding:10px 14px; margin-bottom:14px;
+    align-items:center; gap:12px; font-size:13px; }
+  html[data-theme="light"] .banner { background:#fff7e6; }
+  .banner.show { display:flex; }
+  .center { display:flex; flex-direction:column; justify-content:center; min-height:70vh; max-width:380px; margin:0 auto; }
+  .hidden { display:none !important; }
+  #login-modal { display:none; position:fixed; inset:0; background:rgba(5,8,15,.75); z-index:8;
+    align-items:center; justify-content:center; flex-direction:column; gap:14px; }
+  #login-modal.show { display:flex; }
+  #login-modal img { background:#fff; border-radius:10px; max-width:92vw; max-height:72vh; }
+  .savebar { position:sticky; bottom:10px; background:var(--card); border:1px solid var(--line);
+    border-radius:12px; padding:12px 16px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
 </style>
 </head>
 <body>
@@ -100,7 +96,7 @@
   <div class="row"><input type="text" id="setup-user" placeholder="账号（留空默认 admin）"></div>
   <div class="row"><input type="password" id="setup-pw" placeholder="设置密码（至少 6 位）"></div>
   <div class="row"><input type="password" id="setup-pw2" placeholder="再输入一次"></div>
-  <button onclick="doSetup()">创建账号并进入</button>
+  <button class="primary" onclick="doSetup()">创建账号并进入</button>
 </div>
 
 <!-- 视图：登录 -->
@@ -108,96 +104,154 @@
   <h2>登录管理后台</h2>
   <div class="row"><input type="text" id="login-user" placeholder="账号"></div>
   <div class="row"><input type="password" id="login-pw" placeholder="密码" onkeydown="if(event.key==='Enter')doLogin()"></div>
-  <button onclick="doLogin()">登录</button>
+  <button class="primary" onclick="doLogin()">登录</button>
 </div>
 
-<!-- 视图：配置面板 -->
-<div id="view-panel" class="hidden" style="width:100%;display:flex;flex-direction:column;align-items:center">
-  <h1>AI 比价助手 · 管理后台</h1>
-  <p class="sub">配置保存后，大模型与比价设置立即生效；平台接入的变更需重启服务</p>
+<!-- 视图：管理面板（多页面） -->
+<div id="view-panel" class="wrap hidden">
+  <div class="topbar">
+    <h1>💰 AI 比价助手</h1>
+    <button onclick="toggleTheme()" id="theme-btn" title="切换亮/暗主题">☀️ 亮色</button>
+    <button onclick="doLogout()">退出</button>
+  </div>
+
   <div id="restart-banner" class="banner">
     <span>平台配置已变更，需重启服务后生效</span>
-    <button class="small" onclick="doRestart()">立即重启</button>
+    <button class="ghost small" onclick="doRestart()">立即重启</button>
   </div>
-  <div id="sections"></div>
 
-  <div class="card" id="browser-card">
-    <h2>浏览器登录（四大平台真实数据·实验）
-      <button class="ghost small" onclick="testBrowser(this)">状态检查</button>
-      <span class="status" id="test-browser"></span>
-    </h2>
-    <p class="hint" style="margin:-6px 0 12px">
-      全部平台（美团/淘宝/京东/抖音）用你的登录态抓真实价格。美团填账号密码（触发短信补验证码），其余扫码。
-      实验功能：平台改版或风控可能失败，失败会如实提示，绝不伪造。建议小号。
-    </p>
-    <div class="row">
-      <label>美团账号</label>
-      <input type="text" id="mt-phone" placeholder="手机号" style="max-width:160px">
-      <input type="password" id="mt-password" placeholder="密码（只在内存中使用，不保存）" style="max-width:240px">
-      <button class="small" onclick="startLogin('meituan')">美团登录</button>
-    </div>
-    <div class="row">
-      <label>短信验证码</label>
-      <input type="text" id="mt-sms" placeholder="触发短信后填这里" style="max-width:120px">
-      <button class="small" onclick="sendSms()">提交验证码</button>
-      <span class="hint" id="browser-login-state"></span>
-    </div>
-    <div class="row">
-      <label>扫码登录</label>
-      <button class="small" onclick="startLogin('taobao')">淘宝扫码</button>
-      <button class="small" onclick="startLogin('jd')">京东扫码</button>
-      <button class="small" onclick="startLogin('douyin')">抖音扫码</button>
+  <nav class="tabs">
+    <button data-page="dash" class="active" onclick="goto('dash')">📊 总览</button>
+    <button data-page="ai" onclick="goto('ai')">🤖 AI 模型</button>
+    <button data-page="platforms" onclick="goto('platforms')">💬 聊天平台</button>
+    <button data-page="data" onclick="goto('data')">🛒 数据源</button>
+    <button data-page="browser" onclick="goto('browser')">🔐 浏览器登录</button>
+  </nav>
+
+  <!-- 页：总览 -->
+  <div id="page-dash" class="dash-grid"></div>
+
+  <!-- 页：AI 模型 -->
+  <div id="page-ai" class="hidden">
+    <div id="sec-llm"></div>
+    <div class="savebar">
+      <button class="primary" onclick="saveConfig()">保存配置</button>
+      <span class="hint">填好 Key 点「自动识别」，厂商/地址/模型全部自动填</span>
     </div>
   </div>
 
-  <div id="login-modal">
-    <img id="login-frame" alt="登录页实时画面">
-    <div style="color:var(--muted);font-size:14px" id="login-modal-state">等待登录页画面…</div>
-    <button class="ghost" onclick="closeLogin()">关闭</button>
-  </div>
-  <div class="card" id="location-card">
-    <h2>默认位置 <span class="hint" id="loc-display" style="margin-left:auto"></span></h2>
-    <p class="hint" style="margin:-6px 0 12px">
-      服务器无法主动获取任何人位置。这里设置「默认位置」：没说过自己位置的用户按此查询附近。
-      「使用我当前位置」调用你当前浏览器的定位（浏览器要求 HTTPS 访问才允许；HTTP 请手动填地址）。
-      聊天用户也可以自己说「我在XX市XX区」或（企业微信）发送定位来覆盖。
-    </p>
-    <div class="bar">
-      <button class="small" onclick="useMyLocation()">使用我当前位置</button>
-      <input type="text" id="loc-manual" placeholder="或手动填地址，如 北京市朝阳区望京" style="flex:1">
-      <button class="small" onclick="saveManualLocation()">保存</button>
+  <!-- 页：聊天平台 -->
+  <div id="page-platforms" class="hidden">
+    <div id="sec-wecom"></div>
+    <div id="sec-dingtalk"></div>
+    <div id="sec-qq"></div>
+    <div class="savebar">
+      <button class="primary" onclick="saveConfig()">保存配置</button>
+      <span class="hint">平台变更保存后需「立即重启」生效</span>
     </div>
   </div>
 
-  <div class="card bar">
-    <button onclick="saveConfig()">保存配置</button>
-    <button class="ghost" onclick="doRestart()">重启服务</button>
-    <button class="ghost" onclick="doLogout()">退出登录</button>
-    <span class="hint">重启约需 5~10 秒（容器会自动拉起）</span>
+  <!-- 页：数据源 -->
+  <div id="page-data" class="hidden">
+    <div id="sec-general"></div>
+    <div id="sec-dataoke"></div>
+    <div id="sec-jdunion"></div>
+    <div id="sec-amap"></div>
+    <div class="savebar">
+      <button class="primary" onclick="saveConfig()">保存配置</button>
+      <span class="hint">保存即生效，无需重启</span>
+    </div>
   </div>
+
+  <!-- 页：浏览器登录 -->
+  <div id="page-browser" class="hidden">
+    <div id="sec-browser"></div>
+    <div class="savebar">
+      <button class="primary" onclick="saveConfig()">保存配置</button>
+      <span class="hint">先勾选启用并保存，再扫码登录</span>
+    </div>
+
+    <div class="card" id="browser-card">
+      <h2>平台登录
+        <button class="ghost small" onclick="testBrowser(this)">状态检查</button>
+        <span class="status" id="test-browser"></span>
+      </h2>
+      <p class="hint" style="margin:-4px 0 12px">
+        全部平台（美团/淘宝/京东/抖音）用你的登录态抓真实价格。美团填账号密码（触发短信补验证码），其余扫码。
+        实验功能：平台改版或风控可能失败，失败会如实提示，绝不伪造。建议小号。
+      </p>
+      <div class="row">
+        <label>美团账号</label>
+        <input type="text" id="mt-phone" placeholder="手机号" style="max-width:150px">
+        <input type="password" id="mt-password" placeholder="密码（只在内存中使用，不保存）" style="max-width:230px">
+        <button class="ghost small" onclick="startLogin('meituan')">美团登录</button>
+      </div>
+      <div class="row">
+        <label>短信验证码</label>
+        <input type="text" id="mt-sms" placeholder="触发短信后填这里" style="max-width:120px">
+        <button class="ghost small" onclick="sendSms()">提交验证码</button>
+        <span class="hint" id="browser-login-state"></span>
+      </div>
+      <div class="row">
+        <label>扫码登录</label>
+        <button class="ghost small" onclick="startLogin('taobao')">淘宝扫码</button>
+        <button class="ghost small" onclick="startLogin('jd')">京东扫码</button>
+        <button class="ghost small" onclick="startLogin('douyin')">抖音扫码</button>
+      </div>
+    </div>
+
+    <div class="card" id="location-card">
+      <h2>默认位置 <span class="hint" id="loc-display" style="margin-left:auto"></span></h2>
+      <p class="hint" style="margin:-4px 0 12px">
+        服务器无法主动获取任何人位置。这里设置「默认位置」：没说过自己位置的用户按此查询附近。
+        手机上推荐直接用 <a style="color:var(--accent)" href="/chat">网页聊天</a> 点「🧭定位」（GPS 精确定位，需 HTTPS）。
+      </p>
+      <div class="bar">
+        <button class="ghost small" onclick="useMyLocation()">使用我当前位置</button>
+        <input type="text" id="loc-manual" placeholder="或手动填地址，如 北京市朝阳区望京" style="flex:1">
+        <button class="ghost small" onclick="saveManualLocation()">保存</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="login-modal">
+  <img id="login-frame" alt="登录页实时画面">
+  <div style="color:#aab6d4;font-size:14px" id="login-modal-state">等待登录页画面…</div>
+  <button class="ghost" onclick="closeLogin()">关闭</button>
 </div>
 
 <script>
 const $ = id => document.getElementById(id);
 let FIELD_META = [];
 
-// 常用厂商预设：选中即填入 API 地址与默认模型
-const LLM_PRESETS = [
-  ["", "选择厂商自动填入…", ""],
-  ["https://api.deepseek.com", "DeepSeek", "deepseek-chat"],
-  ["https://open.bigmodel.cn/api/paas/v4", "智谱 GLM", "glm-4.7"],
-  ["https://api.moonshot.cn/v1", "Kimi", "moonshot-v1-8k"],
-  ["https://dashscope.aliyuncs.com/compatible-mode/v1", "通义千问", "qwen-plus"],
-  ["https://api.openai.com/v1", "OpenAI", "gpt-4o-mini"],
-  ["http://127.0.0.1:11434/v1", "Ollama 本地", ""],
-];
+// ---------------- 主题 ----------------
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  $("theme-btn").textContent = theme === "light" ? "🌙 暗色" : "☀️ 亮色";
+  localStorage.setItem("admin_theme", theme);
+}
+function toggleTheme() {
+  applyTheme(document.documentElement.dataset.theme === "light" ? "dark" : "light");
+}
+applyTheme(localStorage.getItem("admin_theme") || "dark");
+
+// ---------------- 标签页 ----------------
+function goto(page) {
+  for (const p of ["dash", "ai", "platforms", "data", "browser"]) {
+    $("page-" + p).classList.toggle("hidden", p !== page);
+  }
+  document.querySelectorAll(".tabs button").forEach(b =>
+    b.classList.toggle("active", b.dataset.page === page));
+  if (page === "dash") buildDashboard();
+}
 
 // 各平台填写指引（显示在分区卡片顶部）
 const SECTION_HINTS = {
-  general: "价格源 meituan/taobao/jd/douyin：在下方「大淘客」「京东联盟」卡片配置密钥后，淘宝/京东自动切换为真实报价；未配置的平台（美团/抖音）输出模拟数据",
+  general: "价格源 meituan/taobao/jd/douyin：在「数据源」页配置大淘客/京东联盟密钥、或在「浏览器登录」页扫码后，对应平台自动切换真实报价；未配置的平台输出模拟数据",
   dataoke: "① www.dataoke.com 注册 → 「开放平台」创建应用，获取 AppKey / AppSecret；② 填入后淘宝输出真实商品价（券后价）；③ 保存即生效，无需重启",
   jdunion: "① union.jd.com 注册联盟（个人实名即可）→ 「推广管理 → API」申请 AppKey / AppSecretKey；② 填入后京东输出真实价格（含券信息）；③ 商品查询接口无需授权，保存即生效",
-  amap: "附近搜索（官方API）: ① lbs.amap.com 注册（个人实名）→ 控制台创建应用 → 添加 Key（选「Web服务」）；② 填入后支持「我在XX市XX区」位置记忆、「附近的电影院/足疗店」按距离排序",
+  amap: "附近搜索（官方API）: ① lbs.amap.com 注册（个人实名）→ 控制台创建应用 → 添加 Key（选「Web服务」）；② 填入后支持位置记忆、「附近的电影院/足疗店」按距离排序",
   wecom: "① work.weixin.qq.com → 应用管理 → 创建自建应用；② Corp ID 在「我的企业」页，Agent ID 与 Secret 在应用详情页；③ 应用「接收消息」→ 设置API接收 → 生成 Token 与 EncodingAESKey，URL 填 http(s)://你的公网域名:2048/webhook/wecom",
   dingtalk: "① open-dev.dingtalk.com → 应用开发 → 创建企业内部应用；② 「添加应用能力」→ 机器人，消息接收模式选 Stream 模式；③ Client ID / Client Secret 在「凭证与基础信息」页（无需公网 IP）",
   qq: "① q.qq.com 注册并创建机器人（个人可注册）；② App ID 与 Client Secret 在机器人「开发设置」页；③ 群里使用需 @机器人（无需公网 IP）",
@@ -233,6 +287,7 @@ async function boot() {
   await loadConfig();
   loadLocation();
   showView("panel");
+  goto("dash");
 }
 
 async function doSetup() {
@@ -245,10 +300,8 @@ async function doSetup() {
 }
 
 async function doLogin() {
-  try {
-    await api("login", { username: $("login-user").value.trim(), password: $("login-pw").value });
-    await boot();
-  } catch (e) { toast(e.message, false); }
+  try { await api("login", { username: $("login-user").value.trim(), password: $("login-pw").value }); await boot(); }
+  catch (e) { toast(e.message, false); }
 }
 
 async function doLogout() {
@@ -256,6 +309,274 @@ async function doLogout() {
   showView("login");
 }
 
+// ---------------- 表单渲染 ----------------
+async function loadConfig() {
+  const data = await api("config");
+  FIELD_META = data.fields;
+  const testable = { llm: "测试连通", wecom: "测试凭证", dingtalk: "测试凭证", qq: "测试凭证",
+                     dataoke: "测试接口", jdunion: "测试接口", amap: "测试Key" };
+  for (const section of ["llm", "wecom", "dingtalk", "qq", "general", "dataoke", "jdunion", "amap", "browser"]) {
+    const container = $("sec-" + section);
+    if (container) container.innerHTML = "";
+  }
+  for (const f of data.fields) {
+    const container = $("sec-" + f.section);
+    if (!container) continue;
+    let header = `<h2>${data.sections[f.section] || f.section}`;
+    if (f.section === "llm") {
+      header += ` <button class="ghost small" onclick="detectLLM(this)">✨ 自动识别</button>
+        <button class="ghost small" onclick="fetchModels(this)">获取模型</button>`;
+    }
+    if (testable[f.section]) {
+      header += ` <button class="ghost small" onclick="runTest('${f.section}', this)">${testable[f.section]}</button>`;
+    }
+    header += ` <span class="status" id="test-${f.section}"></span></h2>`;
+    if (SECTION_HINTS[f.section]) {
+      header += `<p class="hint" style="margin:-6px 0 12px">${SECTION_HINTS[f.section]}</p>`;
+    }
+    const card = document.createElement("div");
+    card.className = "card";
+    card.innerHTML = header;
+    const row = document.createElement("div");
+    row.className = "row";
+    if (f.type === "checkbox") {
+      row.innerHTML = `<label>${f.label}</label>
+        <span class="switch"><input type="checkbox" id="f-${f.key}" ${f.value ? "checked" : ""}><span></span></span>`;
+    } else if (f.type === "password") {
+      row.innerHTML = `<label>${f.label}</label>
+        <input type="password" id="f-${f.key}" placeholder="${f.set ? "已配置，留空保持不变" : "未配置"}" autocomplete="new-password">`;
+    } else {
+      const listAttr = f.key === "LLM_MODEL" ? ' list="llm-models"' : "";
+      row.innerHTML = `<label>${f.label}</label>
+        <input type="text" id="f-${f.key}"${listAttr} value="${String(f.value).replace(/"/g, "&quot;")}">`;
+    }
+    card.appendChild(row);
+    container.appendChild(card);
+  }
+}
+
+function collectValues(includeEmptySecrets = false) {
+  const values = {};
+  for (const f of FIELD_META) {
+    const el = $("f-" + f.key);
+    if (!el) continue;
+    if (f.type === "checkbox") { values[f.key] = el.checked; continue; }
+    const v = el.value.trim();
+    if (f.type === "password" && v === "" && !includeEmptySecrets) continue;
+    values[f.key] = v;
+  }
+  return values;
+}
+
+async function saveConfig() {
+  try {
+    const result = await api("config", { values: collectValues() });
+    $("restart-banner").classList.toggle("show", !!result.restart_required);
+    toast(result.restart_required ? "已保存；平台配置需重启生效" : "已保存并生效");
+    await loadConfig();
+  } catch (e) { toast(e.message, false); }
+}
+
+// ---------------- AI 自动识别 ----------------
+async function detectLLM(btn) {
+  const status = $("test-llm");
+  const key = $("f-LLM_API_KEY").value.trim();
+  if (!key) { status.textContent = "✗ 请先填写 API Key"; status.className = "status bad"; return; }
+  status.textContent = "⟳ 正在识别厂商…"; status.className = "status wait";
+  btn.disabled = true;
+  try {
+    const data = await api("detect-llm", {
+      api_key: key,
+      base_url: $("f-LLM_BASE_URL").value.trim(),
+    });
+    if (!data.ok) { status.textContent = "✗ " + data.detail; status.className = "status bad"; return; }
+    $("f-LLM_BASE_URL").value = data.base_url;
+    $("f-LLM_MODEL").value = data.recommended;
+    const list = $("llm-models");
+    list.innerHTML = "";
+    for (const m of data.models) {
+      const option = document.createElement("option");
+      option.value = m;
+      list.appendChild(option);
+    }
+    status.textContent = `✓ ${data.detail}，已选 ${data.recommended}`; status.className = "status ok";
+    toast(`识别为 ${data.provider}，已自动填入地址与模型`);
+  } catch (e) {
+    status.textContent = "✗ " + e.message; status.className = "status bad";
+  } finally { btn.disabled = false; }
+}
+
+async function fetchModels(btn) {
+  const status = $("test-llm");
+  status.textContent = "⟳ 获取中…"; status.className = "status wait";
+  btn.disabled = true;
+  try {
+    const data = await api("models", { values: collectValues(true) });
+    if (!data.ok) { status.textContent = "✗ " + (data.detail || "获取失败"); status.className = "status bad"; return; }
+    const list = $("llm-models");
+    list.innerHTML = "";
+    for (const m of data.models) {
+      const option = document.createElement("option");
+      option.value = m;
+      list.appendChild(option);
+    }
+    status.textContent = `✓ ${data.detail}`; status.className = "status ok";
+    const modelInput = $("f-LLM_MODEL");
+    modelInput.focus();
+    try { modelInput.showPicker(); } catch (e) {}
+  } catch (e) {
+    status.textContent = "✗ " + e.message; status.className = "status bad";
+  } finally { btn.disabled = false; }
+}
+
+// ---------------- 测试按钮 ----------------
+async function runTest(target, btn) {
+  const status = $("test-" + target);
+  status.textContent = "⟳ 测试中…"; status.className = "status wait";
+  btn.disabled = true;
+  try {
+    const data = await api("test", { target, values: collectValues(true) });
+    status.textContent = (data.ok ? "✓ " : "✗ ") + (data.detail || "");
+    status.className = "status " + (data.ok ? "ok" : "bad");
+  } catch (e) {
+    status.textContent = "✗ " + e.message; status.className = "status bad";
+  } finally { btn.disabled = false; }
+}
+
+// ---------------- 总览仪表盘 ----------------
+async function buildDashboard() {
+  const grid = $("page-dash");
+  grid.innerHTML = "";
+  const fields = {};
+  try {
+    for (const f of (await api("config")).fields) fields[f.key] = f;
+  } catch (e) { return; }
+  let logged = {};
+  try {
+    logged = (await api("browser-login/status")).logged || {};
+  } catch (e) {}
+  let defaultLoc = null;
+  try { defaultLoc = (await api("location")).location; } catch (e) {}
+
+  const item = (title, stateHtml, btnText, page) =>
+    `<div class="dash-item"><h3>${title}</h3><div class="state">${stateHtml}</div>
+     ${page ? `<button class="ghost small" onclick="goto('${page}')">${btnText}</button>` : ""}</div>`;
+  const dot = (on, label) => `<span class="dot ${on ? "on" : ""}"></span>${label}<br>`;
+
+  const llmOk = fields.LLM_API_KEY && fields.LLM_API_KEY.set;
+  grid.innerHTML =
+    item("🤖 AI 模型",
+      dot(llmOk, llmOk ? `已配置（${(fields.LLM_MODEL || {}).value || "未选模型"}）` : "未配置，机器人无法回复"),
+      "去配置", "ai") +
+    item("💬 聊天平台",
+      dot(fields.WECOM_ENABLED && fields.WECOM_ENABLED.value, "企业微信") +
+      dot(fields.DINGTALK_ENABLED && fields.DINGTALK_ENABLED.value, "钉钉") +
+      dot(fields.QQ_ENABLED && fields.QQ_ENABLED.value, "QQ 机器人") +
+      `<span class="hint">手机可用 <a style="color:var(--accent)" href="/chat">/chat 网页聊天</a>，零配置</span>`,
+      "去配置", "platforms") +
+    item("🛒 真实数据源",
+      dot(fields.DATAOKE_APP_KEY && fields.DATAOKE_APP_KEY.set, "淘宝 · 大淘客") +
+      dot(fields.JD_UNION_APP_KEY && fields.JD_UNION_APP_KEY.set, "京东 · 联盟API") +
+      dot(fields.AMAP_KEY && fields.AMAP_KEY.set, "高德 · 附近搜索"),
+      "去配置", "data") +
+    item("🔐 浏览器登录（真实抓取）",
+      dot(logged.meituan, "美团") + dot(logged.taobao, "淘宝") +
+      dot(logged.jd, "京东") + dot(logged.douyin, "抖音") +
+      (fields.BROWSER_ENABLED && fields.BROWSER_ENABLED.value ? "" : `<span class="hint">总开关未开启</span><br>`),
+      "去登录", "browser") +
+    item("📍 默认位置",
+      defaultLoc && defaultLoc.address
+        ? `<span class="dot on"></span>${defaultLoc.address}`
+        : "<span class='dot'></span>未设置（未定位的用户按此查附近）",
+      "去设置", "browser") +
+    item("⚙️ 系统",
+      `<span class="hint">网页聊天 <a style="color:var(--accent)" href="/chat">/chat</a> · 配置持久化于 ./config ./data ./logs</span>`,
+      "重启服务", "").replace(
+        `onclick="goto('')"`, `onclick="doRestart()"`);
+}
+
+// ---------------- 重启 ----------------
+async function doRestart() {
+  if (!confirm("确定重启服务？约 5~10 秒后自动恢复。")) return;
+  try {
+    await api("restart", {});
+    toast("正在重启，稍后自动刷新…");
+    setTimeout(pollRevive, 2000);
+  } catch (e) { toast(e.message, false); }
+}
+
+async function pollRevive() {
+  try {
+    const resp = await fetch("/admin/api/state");
+    if (resp.ok) { location.reload(); return; }
+  } catch (e) {}
+  setTimeout(pollRevive, 1500);
+}
+
+// ---------------- 浏览器登录 ----------------
+let loginTimer = null;
+async function startLogin(platform) {
+  const body = { platform };
+  if (platform === "meituan") {
+    body.phone = $("mt-phone").value.trim();
+    body.password = $("mt-password").value;
+  }
+  try { await api("browser-login/start", body); }
+  catch (e) { return toast(e.message, false); }
+  $("login-modal").classList.add("show");
+  refreshLoginFrame();
+  clearInterval(loginTimer);
+  loginTimer = setInterval(pollLoginStatus, 2500);
+}
+
+function refreshLoginFrame() {
+  $("login-frame").src = "/admin/api/browser-login/frame?t=" + Date.now();
+  setTimeout(refreshLoginFrame, 2500);
+}
+
+async function pollLoginStatus() {
+  try {
+    const data = await api("browser-login/status");
+    $("login-modal-state").textContent = data.message || data.state;
+    $("browser-login-state").textContent = Object.entries(data.logged)
+      .map(([k, v]) => (v ? `✓${k}已登录` : "")).filter(Boolean).join(" ") || "未登录";
+    if (data.state === "logged_in") {
+      clearInterval(loginTimer);
+      $("login-modal").classList.remove("show");
+      toast("登录成功，已保存登录态");
+    } else if (data.state === "timeout" || data.state === "error") {
+      clearInterval(loginTimer);
+    }
+  } catch (e) {}
+}
+
+function closeLogin() {
+  clearInterval(loginTimer);
+  $("login-modal").classList.remove("show");
+}
+
+async function sendSms() {
+  try {
+    await api("browser-login/code", { code: $("mt-sms").value.trim() });
+    toast("验证码已提交");
+  } catch (e) { toast(e.message, false); }
+}
+
+async function testBrowser(btn) {
+  const status = $("test-browser");
+  status.textContent = "⟳ 检查中…"; status.className = "status wait";
+  btn.disabled = true;
+  try {
+    const data = await api("test", { target: "browser", values: {} });
+    status.textContent = (data.ok ? "✓ " : "✗ ") + (data.detail || "");
+    status.className = "status " + (data.ok ? "ok" : "bad");
+    pollLoginStatus();
+  } catch (e) {
+    status.textContent = "✗ " + e.message; status.className = "status bad";
+  } finally { btn.disabled = false; }
+}
+
+// ---------------- 默认位置 ----------------
 async function loadLocation() {
   try {
     const data = await api("location");
@@ -286,201 +607,6 @@ async function saveManualLocation() {
   const address = $("loc-manual").value.trim();
   if (!address) return toast("请输入地址", false);
   await saveLocationBody({ address });
-}
-
-async function loadConfig() {
-  const data = await api("config");
-  FIELD_META = data.fields;
-  const bySection = {};
-  for (const f of data.fields) (bySection[f.section] = bySection[f.section] || []).push(f);
-
-  const sectionsEl = $("sections");
-  sectionsEl.innerHTML = "";
-  const testable = { llm: "测试连通", wecom: "测试凭证", dingtalk: "测试凭证", qq: "测试凭证", dataoke: "测试接口", jdunion: "测试接口", amap: "测试Key", browser: "状态检查" };
-  for (const [section, fields] of Object.entries(bySection)) {
-    const card = document.createElement("div");
-    card.className = "card";
-    let header = `<h2>${data.sections[section] || section}`;
-    if (section === "llm") {
-      const options = LLM_PRESETS.map(([base, label]) => `<option value="${base}">${label}</option>`).join("");
-      header += ` <select class="preset" id="llm-preset" onchange="applyPreset(this)">${options}</select>
-        <button class="ghost small" onclick="fetchModels(this)">获取模型</button>`;
-    }
-    if (testable[section]) {
-      header += ` <button class="ghost small" onclick="runTest('${section}', this)">${testable[section]}</button>`;
-    }
-    header += ` <span class="status" id="test-${section}"></span></h2>`;
-    if (SECTION_HINTS[section]) {
-      header += `<p class="hint" style="margin:-6px 0 14px">${SECTION_HINTS[section]}</p>`;
-    }
-    card.innerHTML = header;
-    for (const f of fields) {
-      const row = document.createElement("div");
-      row.className = "row";
-      if (f.type === "checkbox") {
-        row.innerHTML = `<label>${f.label}</label>
-          <span class="switch"><input type="checkbox" id="f-${f.key}" ${f.value ? "checked" : ""}><span></span></span>`;
-      } else if (f.type === "password") {
-        row.innerHTML = `<label>${f.label}</label>
-          <input type="password" id="f-${f.key}" placeholder="${f.set ? "已配置，留空保持不变" : "未配置"}" autocomplete="new-password">`;
-      } else {
-        const listAttr = f.key === "LLM_MODEL" ? ' list="llm-models"' : "";
-        row.innerHTML = `<label>${f.label}</label>
-          <input type="text" id="f-${f.key}"${listAttr} value="${String(f.value).replace(/"/g, "&quot;")}">`;
-      }
-      card.appendChild(row);
-    }
-    sectionsEl.appendChild(card);
-  }
-}
-
-function applyPreset(sel) {
-  if (!sel.value) return;
-  const preset = LLM_PRESETS.find(([base]) => base === sel.value);
-  if (!preset) return;
-  $("f-LLM_BASE_URL").value = preset[0];
-  if (preset[2]) $("f-LLM_MODEL").value = preset[2];
-  toast(`已填入 ${preset[1]} 的地址，填好 Key 后可点「获取模型」在线拉取列表`);
-}
-
-async function fetchModels(btn) {
-  const status = $("test-llm");
-  status.textContent = "⟳ 获取中…"; status.className = "status wait";
-  btn.disabled = true;
-  try {
-    const data = await api("models", { values: collectValues(true) });
-    if (!data.ok) {
-      status.textContent = "✗ " + (data.detail || "获取失败"); status.className = "status bad";
-      return;
-    }
-    const list = $("llm-models");
-    list.innerHTML = "";
-    for (const m of data.models) {
-      const option = document.createElement("option");
-      option.value = m;
-      list.appendChild(option);
-    }
-    status.textContent = `✓ ${data.detail}`; status.className = "status ok";
-    const modelInput = $("f-LLM_MODEL");
-    modelInput.focus();
-    try { modelInput.showPicker(); } catch (e) {}
-  } catch (e) {
-    status.textContent = "✗ " + e.message; status.className = "status bad";
-  } finally { btn.disabled = false; }
-}
-
-function collectValues(includeEmptySecrets = false) {
-  const values = {};
-  for (const f of FIELD_META) {
-    const el = $("f-" + f.key);
-    if (!el) continue;
-    if (f.type === "checkbox") { values[f.key] = el.checked; continue; }
-    const v = el.value.trim();
-    if (f.type === "password" && v === "" && !includeEmptySecrets) continue; // 留空=不改
-    values[f.key] = v;
-  }
-  return values;
-}
-
-async function saveConfig() {
-  try {
-    const result = await api("config", { values: collectValues() });
-    $("restart-banner").classList.toggle("show", !!result.restart_required);
-    toast(result.restart_required ? "已保存；平台配置需重启生效" : "已保存并生效");
-    await loadConfig();
-  } catch (e) { toast(e.message, false); }
-}
-
-async function runTest(target, btn) {
-  const status = $("test-" + target);
-  status.textContent = "⟳ 测试中…"; status.className = "status wait";
-  btn.disabled = true;
-  try {
-    const data = await api("test", { target, values: collectValues(true) });
-    status.textContent = (data.ok ? "✓ " : "✗ ") + (data.detail || "");
-    status.className = "status " + (data.ok ? "ok" : "bad");
-  } catch (e) {
-    status.textContent = "✗ " + e.message; status.className = "status bad";
-  } finally { btn.disabled = false; }
-}
-
-async function doRestart() {
-  if (!confirm("确定重启服务？约 5~10 秒后自动恢复。")) return;
-  try {
-    await api("restart", {});
-    toast("正在重启，稍后自动刷新…");
-    setTimeout(pollRevive, 2000);
-  } catch (e) { toast(e.message, false); }
-}
-
-async function pollRevive() {
-  try {
-    const resp = await fetch("/admin/api/state");
-    if (resp.ok) { location.reload(); return; }
-  } catch (e) {}
-  setTimeout(pollRevive, 1500);
-}
-
-let loginTimer = null;
-async function startLogin(platform) {
-  const body = { platform };
-  if (platform === "meituan") {
-    body.phone = $("mt-phone").value.trim();
-    body.password = $("mt-password").value;
-  }
-  try { await api("browser-login/start", body); }
-  catch (e) { return toast(e.message, false); }
-  $("login-modal").classList.add("show");
-  refreshLoginFrame();
-  clearInterval(loginTimer);
-  loginTimer = setInterval(pollLoginStatus, 2500);
-}
-
-async function sendSms() {
-  try {
-    await api("browser-login/code", { code: $("mt-sms").value.trim() });
-    toast("验证码已提交");
-  } catch (e) { toast(e.message, false); }
-}
-
-function refreshLoginFrame() {
-  $("login-frame").src = "/admin/api/browser-login/frame?t=" + Date.now();
-  setTimeout(refreshLoginFrame, 2500);
-}
-
-async function pollLoginStatus() {
-  try {
-    const data = await api("browser-login/status");
-    $("login-modal-state").textContent = data.message || data.state;
-    $("browser-login-state").textContent = Object.entries(data.logged)
-      .map(([k, v]) => (v ? `✓${k}已登录` : "")).filter(Boolean).join(" ") || "未登录";
-    if (data.state === "logged_in") {
-      clearInterval(loginTimer);
-      $("login-modal").classList.remove("show");
-      toast("登录成功，已保存登录态");
-    } else if (data.state === "timeout" || data.state === "error") {
-      clearInterval(loginTimer);
-    }
-  } catch (e) { /* 会话过期等，忽略 */ }
-}
-
-function closeLogin() {
-  clearInterval(loginTimer);
-  $("login-modal").classList.remove("show");
-}
-
-async function testBrowser(btn) {
-  const status = $("test-browser");
-  status.textContent = "⟳ 检查中…"; status.className = "status wait";
-  btn.disabled = true;
-  try {
-    const data = await api("test", { target: "browser", values: {} });
-    status.textContent = (data.ok ? "✓ " : "✗ ") + (data.detail || "");
-    status.className = "status " + (data.ok ? "ok" : "bad");
-    pollLoginStatus();
-  } catch (e) {
-    status.textContent = "✗ " + e.message; status.className = "status bad";
-  } finally { btn.disabled = false; }
 }
 
 boot();

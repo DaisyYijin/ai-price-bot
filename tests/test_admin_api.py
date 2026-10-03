@@ -145,3 +145,55 @@ def test_models_endpoint(client, monkeypatch):
 
 def test_models_endpoint_requires_auth(client):
     assert client.post("/admin/api/models", json={"values": {}}).status_code == 401
+
+
+def test_detect_llm(client, monkeypatch):
+    """自动识别：候选厂商逐一探测，命中即返回厂商与推荐模型。"""
+    from app.admin import routes as routes_module
+
+    client.post("/admin/api/setup", json={"username": "admin", "password": "admin-pass-1"})
+
+    async def fake_fetch(base_url, api_key):
+        if base_url == "https://api.moonshot.cn/v1":
+            return ["moonshot-v1-8k", "moonshot-v1-32k"]
+        raise RuntimeError("401")
+
+    monkeypatch.setattr(routes_module, "_fetch_models", fake_fetch)
+    resp = client.post("/admin/api/detect-llm", json={"api_key": "sk-x"}).json()
+    assert resp["ok"] is True
+    assert resp["provider"] == "Kimi"
+    assert resp["base_url"] == "https://api.moonshot.cn/v1"
+    assert resp["recommended"] == "moonshot-v1-8k"
+
+    # 指定 base_url 时只探测自定义地址
+    async def fake_custom(base_url, api_key):
+        assert base_url == "http://my-ollama:11434/v1"
+        return ["qwen2.5:7b", "llama3:8b"]
+
+    monkeypatch.setattr(routes_module, "_fetch_models", fake_custom)
+    resp = client.post(
+        "/admin/api/detect-llm",
+        json={"api_key": "sk-x", "base_url": "http://my-ollama:11434/v1"},
+    ).json()
+    assert resp["provider"] == "自定义"
+    assert resp["recommended"] == "llama3:8b"  # 无偏好关键词 → 字典序
+
+    # 全部失败 → 明确提示
+    async def fake_none(base_url, api_key):
+        raise RuntimeError("401")
+
+    monkeypatch.setattr(routes_module, "_fetch_models", fake_none)
+    resp = client.post("/admin/api/detect-llm", json={"api_key": "sk-bad"})
+    assert resp.status_code == 200
+    assert resp.json()["ok"] is False
+
+    # 缺 Key → 400
+    assert client.post("/admin/api/detect-llm", json={"api_key": ""}).status_code == 400
+
+
+def test_recommend_model_preferences():
+    from app.admin.routes import _recommend_model
+
+    assert _recommend_model("DeepSeek", ["deepseek-reasoner", "deepseek-chat"]) == "deepseek-chat"
+    assert _recommend_model("通义千问", ["qwen-max", "qwen-plus", "qwen-turbo"]) == "qwen-plus"
+    assert _recommend_model("未知厂商", ["b-model", "a-model"]) == "a-model"
