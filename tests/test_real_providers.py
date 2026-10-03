@@ -169,6 +169,54 @@ def test_build_effective_browser_douyin(monkeypatch, tmp_path):
     assert isinstance(providers[0], BrowserDouyinProvider)
 
 
+def test_browser_priority_over_union(monkeypatch, tmp_path):
+    """浏览器优先于联盟API；浏览器未登录时回落联盟，都没配回落模拟。"""
+    from app.browser import manager as bm
+    from app.providers.browser_taobao_jd import BrowserJdProvider, BrowserTaobaoProvider
+    from app.providers.dataoke import DataokeProvider
+    from app.providers.mock import TaobaoMock
+
+    monkeypatch.setattr(bm, "DATA_DIR", tmp_path)
+    names = lambda: ["taobao"]  # noqa: E731
+    base = _fake_settings(enabled_provider_names=names)  # 带大淘客密钥
+
+    # 浏览器关 → 联盟
+    assert isinstance(provider_base.build_effective(base)[0], DataokeProvider)
+    # 浏览器开但未登录 → 仍联盟
+    assert isinstance(provider_base.build_effective(_fake_settings(enabled_provider_names=names, browser_enabled=True))[0], DataokeProvider)
+    # 浏览器开且已登录 → 浏览器优先
+    bm.mark_logged_in("taobao")
+    assert isinstance(provider_base.build_effective(_fake_settings(enabled_provider_names=names, browser_enabled=True))[0], BrowserTaobaoProvider)
+    # 浏览器关（已登录也无效）→ 联盟
+    assert isinstance(provider_base.build_effective(base)[0], DataokeProvider)
+
+    # 京东：无联盟密钥、已扫码 → 浏览器；未扫码 → 模拟
+    jd_names = lambda: ["jd"]  # noqa: E731
+    bm.mark_logged_in("jd")
+    assert isinstance(provider_base.build_effective(
+        _fake_settings(enabled_provider_names=jd_names, browser_enabled=True,
+                       jd_union_app_key="", jd_union_secret_key=""))[0], BrowserJdProvider)
+    from app.providers.mock import JdMock
+    assert isinstance(provider_base.build_effective(
+        _fake_settings(enabled_provider_names=jd_names, jd_union_app_key="", jd_union_secret_key=""))[0], JdMock)
+    # 无任何配置时淘宝回落模拟
+    monkeypatch.setattr(bm, "DATA_DIR", tmp_path)  # 重置登录标记由下一句控制
+    bm.login_marker("taobao").unlink(missing_ok=True)
+    assert isinstance(provider_base.build_effective(
+        _fake_settings(enabled_provider_names=names, dataoke_app_key="", dataoke_app_secret=""))[0], TaobaoMock)
+
+
+async def test_browser_taobao_jd_require_login(monkeypatch, tmp_path):
+    from app.browser import manager as bm
+    from app.providers.browser_taobao_jd import BrowserJdProvider, BrowserTaobaoProvider
+
+    monkeypatch.setattr(bm, "DATA_DIR", tmp_path)
+    with pytest.raises(RuntimeError, match="未登录"):
+        await BrowserTaobaoProvider().search("x")
+    with pytest.raises(RuntimeError, match="未登录"):
+        await BrowserJdProvider().search("x")
+
+
 async def test_browser_douyin_requires_login(monkeypatch, tmp_path):
     from app.browser import manager as bm
     from app.providers.browser_douyin import BrowserDouyinProvider

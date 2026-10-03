@@ -38,39 +38,61 @@ def build_enabled(names: list[str]) -> list["PriceProvider"]:
 
 
 def build_effective(settings: Settings) -> list["PriceProvider"]:
-    """按配置解析实际使用的数据源：平台配了真实联盟密钥用真实 Provider，否则回落模拟源。"""
-    real_choices: dict[str, tuple[str, str]] = {
-        # 逻辑平台名 → (app_key属性, secret属性)；两个都配置才启用真实源
-        "taobao": ("dataoke_app_key", "dataoke_app_secret"),
-        "jd": ("jd_union_app_key", "jd_union_secret_key"),
-    }
+    """解析实际使用的数据源，优先级：浏览器登录态 > 联盟API > 模拟。
+
+    - BROWSER_ENABLED 开且对应平台已扫码登录 → 浏览器真实抓取（实验）
+    - 配了联盟密钥（大淘客/京东联盟）→ 官方 API 真实数据
+    - 其余 → 模拟数据（结果中标注）
+    """
+    from app.browser import manager as bm
+
+    browser_on = getattr(settings, "browser_enabled", False)
     providers: list[PriceProvider] = []
     for name in settings.enabled_provider_names():
-        key_attr, secret_attr = real_choices.get(name.lower(), ("", ""))
+        n = name.lower()
+
+        # 1) 浏览器登录态（四平台）
+        if browser_on:
+            browser_cls = None
+            if n == "meituan" and bm.is_logged_in("meituan"):
+                from app.providers.browser_meituan import BrowserMeituanProvider
+
+                browser_cls = BrowserMeituanProvider
+            elif n == "douyin" and bm.is_logged_in("douyin"):
+                from app.providers.browser_douyin import BrowserDouyinProvider
+
+                browser_cls = BrowserDouyinProvider
+            elif n == "taobao" and bm.is_logged_in("taobao"):
+                from app.providers.browser_taobao_jd import BrowserTaobaoProvider
+
+                browser_cls = BrowserTaobaoProvider
+            elif n == "jd" and bm.is_logged_in("jd"):
+                from app.providers.browser_taobao_jd import BrowserJdProvider
+
+                browser_cls = BrowserJdProvider
+            if browser_cls is not None:
+                providers.append(browser_cls())
+                continue
+
+        # 2) 联盟 API
+        real_choices: dict[str, tuple[str, str]] = {
+            "taobao": ("dataoke_app_key", "dataoke_app_secret"),
+            "jd": ("jd_union_app_key", "jd_union_secret_key"),
+        }
+        key_attr, secret_attr = real_choices.get(n, ("", ""))
         if key_attr and getattr(settings, key_attr) and getattr(settings, secret_attr):
-            if name.lower() == "taobao":
+            if n == "taobao":
                 from app.providers.dataoke import DataokeProvider
 
                 providers.append(DataokeProvider())
                 continue
-            if name.lower() == "jd":
+            if n == "jd":
                 from app.providers.jd_union import JdUnionProvider
 
                 providers.append(JdUnionProvider())
                 continue
-        if getattr(settings, "browser_enabled", False):
-            from app.browser import manager as bm
 
-            if name.lower() == "meituan" and bm.is_logged_in("meituan"):
-                from app.providers.browser_meituan import BrowserMeituanProvider
-
-                providers.append(BrowserMeituanProvider())
-                continue
-            if name.lower() == "douyin" and bm.is_logged_in("douyin"):
-                from app.providers.browser_douyin import BrowserDouyinProvider
-
-                providers.append(BrowserDouyinProvider())
-                continue
+        # 3) 模拟兜底
         providers.extend(build_enabled([name]))
     return providers
 

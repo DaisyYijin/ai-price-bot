@@ -20,7 +20,19 @@ LOGIN_TARGETS: dict[str, dict] = {
         "url": "https://www.douyin.com/login",
         "success_cookies": ("sessionid", "sessionid_ss", "LOGIN_STATUS"),
         "label": "抖音",
-        "mode": "qrcode",  # 截图里直接扫码
+        "mode": "qrcode",
+    },
+    "taobao": {
+        "url": "https://login.taobao.com/member/login.jhtml",
+        "success_cookies": ("tracknick", "lgc", "cookie17", "sn"),
+        "label": "淘宝",
+        "mode": "qrcode",
+    },
+    "jd": {
+        "url": "https://passport.jd.com/new/login.aspx",
+        "success_cookies": ("pin", "thor"),
+        "label": "京东",
+        "mode": "qrcode",
     },
 }
 
@@ -54,7 +66,7 @@ class LoginRelay:
             await self._cancel_task()
         self.platform = platform
         self.state = "waiting"
-        self.message = "抖音请直接扫码" if target["mode"] == "qrcode" else "正在代填登录…"
+        self.message = "请扫描画面中的二维码" if target["mode"] == "qrcode" else "正在代填登录…"
         self.frame_png = b""
         self._sms_code = None
         self._task = asyncio.create_task(self._run(platform, phone, password))

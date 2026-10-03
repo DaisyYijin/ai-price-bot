@@ -122,12 +122,13 @@
   <div id="sections"></div>
 
   <div class="card" id="browser-card">
-    <h2>浏览器登录（真实团购数据·实验）
+    <h2>浏览器登录（四大平台真实数据·实验）
       <button class="ghost small" onclick="testBrowser(this)">状态检查</button>
       <span class="status" id="test-browser"></span>
     </h2>
     <p class="hint" style="margin:-6px 0 12px">
-      登录后，足疗/美食/电影等团购查询将用你的登录态抓取真实价格（实验功能：平台改版或风控可能失败，失败会如实提示，绝不伪造）。建议小号。
+      全部平台（美团/淘宝/京东/抖音）用你的登录态抓真实价格。美团填账号密码（触发短信补验证码），其余扫码。
+      实验功能：平台改版或风控可能失败，失败会如实提示，绝不伪造。建议小号。
     </p>
     <div class="row">
       <label>美团账号</label>
@@ -139,8 +140,13 @@
       <label>短信验证码</label>
       <input type="text" id="mt-sms" placeholder="触发短信后填这里" style="max-width:120px">
       <button class="small" onclick="sendSms()">提交验证码</button>
-      <button class="ghost small" onclick="startLogin('douyin')">抖音扫码</button>
       <span class="hint" id="browser-login-state"></span>
+    </div>
+    <div class="row">
+      <label>扫码登录</label>
+      <button class="small" onclick="startLogin('taobao')">淘宝扫码</button>
+      <button class="small" onclick="startLogin('jd')">京东扫码</button>
+      <button class="small" onclick="startLogin('douyin')">抖音扫码</button>
     </div>
   </div>
 
