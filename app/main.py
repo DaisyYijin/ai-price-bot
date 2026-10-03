@@ -96,6 +96,11 @@ def create_app() -> FastAPI:
 
     app.include_router(create_admin_router(app.state.dispatcher))
 
+    # 手机网页聊天：浏览器直接对话 + GPS 定位
+    from app.webchat.routes import create_webchat_router
+
+    app.include_router(create_webchat_router(app.state.dispatcher))
+
     for adapter in app.state.adapters:
         adapter.register_routes(app)
 
