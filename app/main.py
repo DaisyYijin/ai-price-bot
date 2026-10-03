@@ -1,7 +1,9 @@
-"""FastAPI 应用入口：按 .env 开关装配各平台适配器。
+"""应用工厂：单进程内两个 FastAPI 服务，共享 Dispatcher/浏览器/位置数据。
 
-启动: uvicorn app.main:app --host 0.0.0.0 --port 2048
-健康检查: GET /healthz
+  管理服务（默认 2048）：管理后台 /admin、平台回调（企微 webhook）与适配器长连接、/healthz
+  前台服务（默认 2222）：前台首页 /、网页聊天 /chat、/healthz
+
+启动入口: python -m app.serve（本模块末尾的 admin_app/public_app 供 uvicorn 引用）
 """
 
 import logging
@@ -10,7 +12,7 @@ from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
 
 from fastapi import FastAPI
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 
 from app.config import LOG_DIR, get_settings
 from app.core.dispatcher import Dispatcher
@@ -38,6 +40,17 @@ def _setup_logging() -> None:
 
 logger = logging.getLogger("app.main")
 
+# 进程级共享状态：两个服务用同一个 Dispatcher（会话历史/数据源/浏览器互通）
+_runtime: dict = {}
+
+
+def _state() -> dict:
+    if "dispatcher" not in _runtime:
+        _runtime["dispatcher"] = Dispatcher()
+    if "adapters" not in _runtime:
+        _runtime["adapters"] = _build_adapters(_runtime["dispatcher"])
+    return _runtime
+
 
 def _build_adapters(dispatcher: Dispatcher) -> list[PlatformAdapter]:
     settings = get_settings()
@@ -58,19 +71,8 @@ def _build_adapters(dispatcher: Dispatcher) -> list[PlatformAdapter]:
     return adapters
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    dispatcher: Dispatcher = app.state.dispatcher
-    started: list[PlatformAdapter] = []
-    for adapter in app.state.adapters:
-        try:
-            await adapter.start()
-            started.append(adapter)
-            logger.info("平台 %s 已启动", adapter.platform)
-        except Exception:
-            logger.exception("平台 %s 启动失败（跳过）", adapter.platform)
-    yield
-    for adapter in started:
+async def _stop_shared() -> None:
+    for adapter in _state().get("adapters", []):
         stop = getattr(adapter, "stop", None)
         if stop:
             try:
@@ -85,36 +87,48 @@ async def lifespan(app: FastAPI):
         logger.exception("浏览器关闭异常")
 
 
-def create_app() -> FastAPI:
-    _setup_logging()
-    settings = get_settings()
-    app = FastAPI(title="AI 比价机器人助手", lifespan=lifespan)
-    app.state.dispatcher = Dispatcher()
-    app.state.adapters = _build_adapters(app.state.dispatcher)
+@asynccontextmanager
+async def _admin_lifespan(app: FastAPI):
+    started: list[PlatformAdapter] = []
+    for adapter in app.state.adapters:
+        try:
+            await adapter.start()
+            started.append(adapter)
+            logger.info("平台 %s 已启动", adapter.platform)
+        except Exception:
+            logger.exception("平台 %s 启动失败（跳过）", adapter.platform)
+    yield
+    await _stop_shared()
 
-    # 网页管理后台：配置填写、连通性测试、重启（始终可用，与平台开关无关）
+
+@asynccontextmanager
+async def _public_lifespan(app: FastAPI):
+    yield  # 前台无平台适配器；共享资源的关闭由管理服务负责
+    await _stop_shared()
+
+
+def create_admin_app() -> FastAPI:
+    state = _state()
+    app = FastAPI(title="AI 比价机器人助手 · 管理", lifespan=_admin_lifespan)
+    app.state.dispatcher = state["dispatcher"]
+    app.state.adapters = state["adapters"]
+
     from app.admin.routes import create_admin_router
 
     app.include_router(create_admin_router(app.state.dispatcher))
-
-    # 手机网页聊天：浏览器直接对话 + GPS 定位
-    from app.webchat.routes import create_webchat_router
-
-    app.include_router(create_webchat_router(app.state.dispatcher))
-
     for adapter in app.state.adapters:
         adapter.register_routes(app)
 
     @app.get("/", include_in_schema=False)
-    async def home() -> FileResponse:
-        # 前台首页：网页聊天与管理后台的入口
-        page = Path(__file__).parent / "webchat" / "static" / "index.html"
-        return FileResponse(page, media_type="text/html")
+    async def root() -> RedirectResponse:
+        return RedirectResponse(url="/admin")
 
     @app.get("/healthz")
     async def healthz() -> dict:
+        settings = get_settings()
         return {
             "status": "ok",
+            "service": "admin",
             "platforms": [a.platform for a in app.state.adapters],
             "llm": settings.llm_model if settings.llm_api_key else "(未配置，仅规则模式)",
         }
@@ -122,4 +136,33 @@ def create_app() -> FastAPI:
     return app
 
 
-app = create_app()
+def create_public_app() -> FastAPI:
+    state = _state()
+    app = FastAPI(title="AI 比价机器人助手 · 前台", lifespan=_public_lifespan)
+    app.state.dispatcher = state["dispatcher"]
+
+    from app.webchat.routes import create_webchat_router
+
+    app.include_router(create_webchat_router(app.state.dispatcher))
+
+    _landing = Path(__file__).parent / "webchat" / "static" / "index.html"
+
+    @app.get("/", include_in_schema=False)
+    async def home() -> FileResponse:
+        return FileResponse(_landing, media_type="text/html")
+
+    @app.get("/healthz")
+    async def healthz() -> dict:
+        return {"status": "ok", "service": "public"}
+
+    return app
+
+
+def create_app() -> FastAPI:
+    """兼容旧入口：返回管理服务应用。"""
+    return create_admin_app()
+
+
+# 供 uvicorn 字符串引用（app.main:admin_app / app.main:public_app）
+admin_app = create_admin_app()
+public_app = create_public_app()

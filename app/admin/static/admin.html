@@ -204,7 +204,7 @@
       <h2>默认位置 <span class="hint" id="loc-display" style="margin-left:auto"></span></h2>
       <p class="hint" style="margin:-4px 0 12px">
         服务器无法主动获取任何人位置。这里设置「默认位置」：没说过自己位置的用户按此查询附近。
-        手机上推荐直接用 <a style="color:var(--accent)" href="/chat">网页聊天</a> 点「🧭定位」（GPS 精确定位，需 HTTPS）。
+        手机上推荐直接用 <a style="color:var(--accent)" data-chat href="#">网页聊天</a> 点「🧭定位」（GPS 精确定位，需 HTTPS）。
       </p>
       <div class="bar">
         <button class="ghost small" onclick="useMyLocation()">使用我当前位置</button>
@@ -224,6 +224,9 @@
 <script>
 const $ = id => document.getElementById(id);
 let FIELD_META = [];
+
+// 聊天服务在 2222 端口，管理页(2048)里的聊天链接需要跨端口
+function chatUrl() { return location.protocol + "//" + location.hostname + ":2222/chat"; }
 
 // ---------------- 主题 ----------------
 function applyTheme(theme) {
@@ -609,6 +612,7 @@ async function saveManualLocation() {
   await saveLocationBody({ address });
 }
 
+document.querySelectorAll("[data-chat]").forEach(a => a.href = chatUrl());
 boot();
 </script>
 </body>

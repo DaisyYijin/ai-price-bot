@@ -52,7 +52,7 @@ docker compose up -d --build
 
 - **钉钉 / QQ**：出站 WebSocket 长连接，部署在任何内网服务器即可，无需公网 IP。
 - **企业微信**：需要公网可达的回调地址，本地调试可用 frp / 云函数 / 服务器反代，
-  回调 URL 填 `http(s)://你的域名:2048/webhook/wecom`。
+  回调 URL 填 `http(s)://你的域名:2048/webhook/wecom`（管理端口）。
 - 已有 `.env` 的老用户可直接 `cp .env config/config.env`，或把值填进网页后台（一次即可）。
 
 ### 持久化目录（三条独立映射）

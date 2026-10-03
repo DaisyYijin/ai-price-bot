@@ -47,6 +47,20 @@ def create_webchat_router(dispatcher) -> APIRouter:
         return {"authenticated": _authed(request), "location": location,
                 "amap": bool(get_settings().amap_key)}
 
+    @router.post("/api/login")
+    async def chat_login(request: Request) -> JSONResponse:
+        """前台独立登录口：与管理后台同一套账号密码，cookie 在本端口生效。"""
+        body = await request.json()
+        username = str(body.get("username") or "")
+        password = str(body.get("password") or "")
+        if not store.credentials_are_set():
+            return JSONResponse({"detail": "尚未初始化账号：请先打开管理后台(2048端口)完成设置"}, status_code=400)
+        if not store.verify_credentials(username, password):
+            return JSONResponse({"detail": "账号或密码错误"}, status_code=401)
+        response = JSONResponse({"ok": True})
+        response.set_cookie(_COOKIE_NAME, store.create_session(), httponly=True, samesite="lax")
+        return response
+
     @router.post("/api/message")
     async def send_message(request: Request) -> JSONResponse:
         if not _authed(request):

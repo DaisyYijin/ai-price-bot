@@ -1,51 +1,61 @@
-"""网页聊天：鉴权、消息走 Dispatcher、GPS 定位按设备记忆。"""
+"""前台服务（2222）：登录、消息走 Dispatcher、GPS 定位按设备记忆、前台首页。"""
 
 from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
 
+from app.admin import store
 from app.core import locations
-from app.main import create_app
+from app.main import create_public_app
 
 
 @pytest.fixture(autouse=True)
 def _tmp_store(tmp_path, monkeypatch):
     monkeypatch.setattr(locations, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(store, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(store, "CONFIG_DIR", tmp_path)
 
 
 @pytest.fixture()
-def client(tmp_path, monkeypatch):
-    from app.admin import store
-
-    monkeypatch.setattr(store, "DATA_DIR", tmp_path)
-    monkeypatch.setattr(store, "CONFIG_DIR", tmp_path)
-    app = create_app()
-    return TestClient(app)
+def client():
+    return TestClient(create_public_app())
 
 
 def _login(client):
-    client.post("/admin/api/setup", json={"username": "admin", "password": "admin-pass-1"})
+    """前台自己的登录口：先落凭据再登录（与管理后台同一套校验）。"""
+    store.set_credentials("admin", "admin-pass-1")
+    resp = client.post(
+        "/chat/api/login", json={"username": "admin", "password": "admin-pass-1"}
+    )
+    assert resp.status_code == 200
 
 
 def test_landing_page(client):
-    """前台首页：入口齐全，/chat /admin 均可直达。"""
+    """前台首页：入口齐全。"""
     resp = client.get("/")
     assert resp.status_code == 200
     assert "网页聊天" in resp.text and "/chat" in resp.text
-    assert "管理后台" in resp.text and "/admin" in resp.text
+    assert "管理后台" in resp.text
     assert client.get("/chat").status_code == 200
-    assert client.get("/admin").status_code == 200
+    assert client.get("/healthz").json()["service"] == "public"
+
+
+def test_chat_login(client):
+    assert client.post("/chat/api/login", json={"username": "a", "password": "b"}).status_code == 400  # 未初始化
+    store.set_credentials("admin", "admin-pass-1")
+    assert client.post("/chat/api/login", json={"username": "admin", "password": "wrong"}).status_code == 401
+    _login(client)
 
 
 def test_message_requires_auth(client):
     assert client.post("/chat/api/message", json={"uid": "abc", "text": "hi"}).status_code == 401
 
 
-def test_chat_flow_with_tools(client, monkeypatch):
+def test_chat_flow_with_tools(client):
     _login(client)
 
-    # 假 LLM：先问位置工具，再作答
+    # 假 LLM：先记位置工具，再作答
     class FakeLLM:
         def __init__(self):
             self.calls = 0
@@ -82,7 +92,6 @@ def test_location_endpoint(client):
     assert data["ok"] is True
     entry = locations.get("web", "device-2")
     assert entry["lat"] == "39.99" and entry["lng"] == "116.48"
-    # 未配置高德Key时 unresolved 但坐标已存
     assert data["resolved"] is False
 
 

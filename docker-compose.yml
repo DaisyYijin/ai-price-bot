@@ -1,15 +1,13 @@
-# 直接拉取镜像部署，无需克隆源码:
-#   1. 改好 ADMIN_USERNAME / ADMIN_PASSWORD
-#   2. mkdir -p config data logs
-#   3. docker compose up -d     （首次会自动拉取镜像，之后 docker compose pull 更新）
-# 网页后台: http://服务器IP:2048/admin
+# 改好 ADMIN_USERNAME / ADMIN_PASSWORD 后: docker compose up -d --build
+# 前台/网页聊天: http://服务器IP:2222    管理后台: http://服务器IP:2048/admin
 
 services:
   price-bot:
     image: ghcr.io/daisyyijin/ai-price-bot:latest
     restart: unless-stopped
     ports:
-      - "2048:2048"
+      - "2048:2048"   # 管理后台 + 企业微信回调
+      - "2222:2222"   # 前台首页 + 网页聊天
     volumes:
       - ./config:/app/config
       - ./data:/app/data

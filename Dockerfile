@@ -18,9 +18,9 @@ RUN useradd --create-home runner \
     && chown -R runner:runner /app
 USER runner
 
-EXPOSE 2048
+EXPOSE 2048 2222
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-    CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:2048/healthz', timeout=3).status == 200 else 1)"
+    CMD python -c "import urllib.request,sys; [urllib.request.urlopen(u, timeout=3) for u in ('http://127.0.0.1:2048/healthz','http://127.0.0.1:2222/healthz')]; sys.exit(0)"
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "2048"]
+CMD ["python", "-m", "app.serve"]
