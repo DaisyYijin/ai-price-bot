@@ -136,6 +136,16 @@ LLM_MODEL=glm-4.7
 页面右上角「🧭 定位」按钮调用手机 GPS **精确定位**（浏览器要求 HTTPS 访问，
 配好域名+证书后即为米级精度），每台设备独立记忆位置。
 
+## 拉取镜像超时怎么办（国内服务器）
+
+`ghcr.io` 在国内普遍不稳定（典型报错 `TLS handshake timeout`）。解决：
+
+1. **换镜像加速源**（已验证同步全部版本）：把 compose 里 `image:` 换成
+   `ghcr.nju.edu.cn/daisyyijin/ai-price-bot:latest` 或
+   `ghcr.dockerproxy.net/daisyyijin/ai-price-bot:latest`，再 `docker compose pull`
+2. 服务器有代理的话给 Docker 配置 `HTTP_PROXY`/`HTTPS_PROXY`
+3. 长期方案：接入阿里云容器镜像服务（个人版免费，国内秒拉），需要时可在 GitHub Actions 增加同步推送
+
 ## 位置与「附近」是怎么实现的
 
 机器人没有你的手机定位，位置靠**用户主动给一次**（长期记忆，按 平台+用户 隔离存 `data/locations.json`）：

@@ -18,3 +18,6 @@ services:
       ADMIN_PASSWORD: change-me
     # 想从源码构建: 注释掉上面的 image，取消下行注释，docker compose up -d --build
     # build: .
+    # ghcr.io 国内拉取超时(TLS handshake timeout)时，换用镜像加速源（已验证同步全部版本）:
+    #   image: ghcr.nju.edu.cn/daisyyijin/ai-price-bot:latest
+    #   image: ghcr.dockerproxy.net/daisyyijin/ai-price-bot:latest
