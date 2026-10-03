@@ -64,6 +64,9 @@ class Settings(BaseSettings):
     # ---- 浏览器真实数据（实验：美团扫码登录后抓取，失败会如实报错）----
     browser_enabled: bool = False
 
+    # ---- 高德地图（附近搜索：地址→坐标→周边影院/店铺，官方API）----
+    amap_key: str = ""
+
     def enabled_provider_names(self) -> list[str]:
         return [name.strip() for name in self.price_providers.split(",") if name.strip()]
 

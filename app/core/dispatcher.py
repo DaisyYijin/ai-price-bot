@@ -5,11 +5,11 @@ import logging
 from app.core.history import ConversationHistory
 from app.core.models import InboundMessage
 from app.llm.client import SYSTEM_PROMPT, LLMClient
-from app.tools.registry import TOOL_SPECS, execute_tool
+from app.tools.registry import TOOL_SPECS, ToolContext, execute_tool
 
 logger = logging.getLogger(__name__)
 
-MAX_TOOL_ROUNDS = 3
+MAX_TOOL_ROUNDS = 6  # 允许多步编排：先记位置→找附近场所→再比价
 
 
 class Dispatcher:
@@ -33,6 +33,7 @@ class Dispatcher:
             {"role": "system", "content": SYSTEM_PROMPT},
             *self.history.messages(msg.platform, msg.chat_id),
         ]
+        ctx = ToolContext(platform=msg.platform, chat_id=msg.chat_id, user_id=msg.user_id)
         for _ in range(MAX_TOOL_ROUNDS):
             answer = await self.llm.chat(messages, tools=TOOL_SPECS)
             if not answer.tool_calls:
@@ -55,7 +56,7 @@ class Dispatcher:
                 }
             )
             for call in answer.tool_calls:
-                result = await execute_tool(call.function.name, call.function.arguments)
+                result = await execute_tool(call.function.name, call.function.arguments, ctx)
                 messages.append(
                     {
                         "role": "tool",

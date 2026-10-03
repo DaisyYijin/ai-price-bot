@@ -144,14 +144,34 @@ class WecomAdapter(PlatformAdapter):
         msg_id = xml.findtext("MsgId") or secrets.token_hex(8)
         if self._is_duplicate(msg_id):
             return PlainTextResponse("")
+        from_user = xml.findtext("FromUserName") or ""
+
+        if msg_type == "location":
+            # 用户直接发定位：记为该用户的位置（附近查询的基础）
+            from app.core import locations
+
+            try:
+                lat = float(xml.findtext("Location_X") or 0)
+                lng = float(xml.findtext("Location_Y") or 0)
+            except ValueError:
+                lat = lng = 0.0
+            label = xml.findtext("Label") or ""
+            entry = locations.set_location("wecom", from_user, address=label, lat=lat, lng=lng)
+            where = entry.get("address") or label or "当前定位"
+            city = f"（{entry['city']}）" if entry.get("city") else ""
+            asyncio.get_running_loop().create_task(
+                self._send_text(from_user, f"已记住你的位置：{where}{city}。可以问我「附近哪家影院优惠最大」了～")
+            )
+            return PlainTextResponse("")
+
         if msg_type != "text":
             self.logger.info("忽略非文本消息: %s", msg_type)
             return PlainTextResponse("")
 
         msg = InboundMessage(
             platform=self.platform,
-            chat_id=xml.findtext("FromUserName") or "",
-            user_id=xml.findtext("FromUserName") or "",
+            chat_id=from_user,
+            user_id=from_user,
             user_name="",
             text=(xml.findtext("Content") or "").strip(),
             raw={"msg_id": msg_id},
@@ -192,18 +212,21 @@ class WecomAdapter(PlatformAdapter):
         self._token_expire_at = time.time() + int(data.get("expires_in", 7200)) - 300
         return self._token
 
-    async def send(self, msg: OutboundMessage) -> None:
+    async def _send_text(self, user_id: str, text: str) -> None:
         token = await self._access_token()
         resp = await self._http.post(
             f"{_API_BASE}/message/send",
             params={"access_token": token},
             json={
-                "touser": msg.user_id or msg.chat_id,
+                "touser": user_id,
                 "msgtype": "text",
                 "agentid": self.settings.wecom_agent_id,
-                "text": {"content": msg.text},
+                "text": {"content": text},
             },
         )
         data = resp.json()
         if data.get("errcode") != 0:
             self.logger.error("企业微信发送失败: %s", data)
+
+    async def send(self, msg: OutboundMessage) -> None:
+        await self._send_text(msg.user_id or msg.chat_id, msg.text)

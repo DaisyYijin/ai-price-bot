@@ -44,6 +44,7 @@ FIELDS: list[tuple[str, str, str, str, str]] = [
     ("JD_UNION_APP_KEY", "jd_union_app_key", "AppKey", "jdunion", "text"),
     ("JD_UNION_SECRET_KEY", "jd_union_secret_key", "AppSecretKey", "jdunion", "password"),
     ("BROWSER_ENABLED", "browser_enabled", "启用浏览器真实数据（美团，实验）", "browser", "checkbox"),
+    ("AMAP_KEY", "amap_key", "Web服务 Key", "amap", "password"),
 ]
 
 SECTION_LABELS = {
@@ -55,6 +56,7 @@ SECTION_LABELS = {
     "dataoke": "淘宝真实数据（大淘客）",
     "jdunion": "京东真实数据（京东联盟）",
     "browser": "浏览器真实数据（实验）",
+    "amap": "高德地图（附近搜索）",
 }
 
 # 登录失败锁定：IP → (连续失败数, 锁定截止时间)
@@ -461,6 +463,19 @@ async def _run_test(target: str, v: dict[str, str]) -> tuple[bool, str]:
             count = len((inner.get("data") or {}).get("list") or [])
             return True, f"接口可用，返回 {count} 条商品"
         return False, str(inner.get("message") or data)[:200]
+
+    if target == "amap":
+        if not v.get("AMAP_KEY"):
+            return False, "请先填写高德 Web服务 Key"
+        from app.tools.nearby import _GEOCODE_URL
+
+        async with httpx.AsyncClient(timeout=15) as client:
+            resp = await client.get(_GEOCODE_URL, params={"address": "北京市朝阳区", "key": v["AMAP_KEY"]})
+            data = resp.json()
+        if data.get("status") == "1" and data.get("geocodes"):
+            formatted = (data["geocodes"][0] or {}).get("formatted_address", "")
+            return True, f"Key 可用，示例解析：{formatted}"
+        return False, str(data.get("info") or data)[:200]
 
     if target == "browser":
         from app.browser import manager as bm

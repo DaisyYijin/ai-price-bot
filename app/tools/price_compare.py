@@ -16,17 +16,28 @@ _QUOTE_LINE = "【{platform}】{title} —— ¥{price}{original}{discount}{url}
 
 
 async def execute_compare_prices(
-    keyword: str, category: str = "综合", sort_by: str = "价格", city: str = ""
+    keyword: str,
+    category: str = "综合",
+    sort_by: str = "价格",
+    city: str = "",
+    ctx=None,
 ) -> str:
     """供 LLM function calling 调用的比价实现，返回给模型阅读的文本。
 
     sort_by：用户要「优惠最大/折扣」按 优惠幅度；要「最便宜/最低价」按 价格。
-    city：用户提到的城市（浏览器数据源按登录/服务器所在城市，city 仅用于提示）。
+    city 未指定时自动使用该用户保存的位置城市（若有）。
     """
     settings = get_settings()
     providers = provider_base.build_effective(settings)
     if not providers:
         return "当前没有启用任何价格数据源（检查 .env 的 PRICE_PROVIDERS）。"
+
+    if not city and ctx is not None and ctx.user_id:
+        from app.core import locations
+
+        location = locations.get(ctx.platform, ctx.user_id)
+        if location and location.get("city"):
+            city = location["city"]
 
     results = await asyncio.gather(
         *(p.search(keyword, category) for p in providers),
