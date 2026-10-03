@@ -46,6 +46,9 @@ def load_all() -> dict:
         return {}
 
 
+DEFAULT_KEY = "__default__"  # 管理后台设置的默认位置（未提供过位置的用户按此查询）
+
+
 def key(platform: str, user_id: str) -> str:
     return f"{platform}:{user_id}"
 
@@ -54,16 +57,28 @@ def get(platform: str, user_id: str) -> dict | None:
     return load_all().get(key(platform, user_id))
 
 
+def get_default() -> dict | None:
+    return load_all().get(DEFAULT_KEY)
+
+
+def set_default(**fields) -> dict:
+    return _save(DEFAULT_KEY, fields)
+
+
 def set_location(platform: str, user_id: str, **fields) -> dict:
+    return _save(key(platform, user_id), fields)
+
+
+def _save(entry_key: str, fields: dict) -> dict:
     """合并式保存；fields 可含 address/city/lat/lng。返回该用户的位置。"""
     data = load_all()
-    entry = data.get(key(platform, user_id), {})
+    entry = data.get(entry_key, {})
     entry.update({k: v for k, v in fields.items() if v not in (None, "")})
     address = entry.get("address", "")
     if not entry.get("city"):
         entry["city"] = parse_city(address)
     entry["updated"] = datetime.now().isoformat(timespec="seconds")
-    data[key(platform, user_id)] = entry
+    data[entry_key] = entry
     _path().parent.mkdir(parents=True, exist_ok=True)
     _path().write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
     return entry

@@ -91,3 +91,31 @@ async def test_compare_prices_uses_saved_city(monkeypatch):
     locations.set_location("cli", "me", address="深圳市南山区科技园")
     result = await execute_tool("compare_prices", '{"keyword":"电影票"}', CTX)
     assert "深圳市" in result  # 未传 city 时自动使用保存的城市
+
+
+async def test_default_location_fallback(monkeypatch):
+    """用户没给过位置时，使用管理后台默认位置；并注明按默认查询。"""
+    from app.tools import nearby
+
+    monkeypatch.setattr(nearby, "amap_configured", lambda: True)
+
+    async def fake_nearby(keyword, lng, lat, radius=5000):
+        return [{"name": "默认位置影院", "address": "x", "distance_m": 300, "rating": "", "cost": ""}]
+
+    monkeypatch.setattr(nearby, "nearby_places", fake_nearby)
+
+    locations.set_default(address="杭州市西湖区文三路", lng="120.13", lat="30.27")
+    # 换一个没有位置记录的用户
+    ctx = ToolContext(platform="cli", chat_id="local", user_id="stranger")
+    result = await execute_tool("find_nearby_places", '{"keyword": "电影院"}', ctx)
+    assert "默认位置影院" in result
+    assert "按默认位置查询" in result
+
+
+def test_default_location_store():
+    assert locations.get_default() is None
+    entry = locations.set_default(address="南京市玄武区")
+    assert entry["city"] == "南京市"
+    assert locations.get_default()["address"] == "南京市玄武区"
+    # 不影响普通用户位置
+    assert locations.get("cli", "stranger") is None

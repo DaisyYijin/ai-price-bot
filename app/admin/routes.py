@@ -228,6 +228,48 @@ def create_admin_router(dispatcher: Dispatcher) -> APIRouter:
             return JSONResponse({"ok": False, "detail": "接口未返回任何模型，请手动填写模型名"})
         return {"ok": True, "models": models, "detail": f"获取到 {len(models)} 个模型，点击模型输入框选择"}
 
+    # ------------------------------------------------ 默认位置
+    @router.get("/api/location")
+    async def get_default_location(request: Request):
+        if not _authed(request):
+            return _unauthorized()
+        from app.core import locations
+
+        return {"location": locations.get_default()}
+
+    @router.post("/api/location")
+    async def set_default_location(request: Request) -> JSONResponse:
+        if not _authed(request):
+            return _unauthorized()
+        from app.core import locations
+        from app.tools import nearby
+
+        body = await request.json()
+        lat, lng = body.get("lat"), body.get("lng")
+        address = str(body.get("address") or "").strip()
+        fields: dict = {}
+        try:
+            if lat is not None and lng is not None:
+                if not nearby.amap_configured():
+                    return JSONResponse({"detail": "坐标定位需要配置高德Key"}, status_code=400)
+                formatted = await nearby.regeo(str(lng), str(lat))
+                fields = {"lat": str(lat), "lng": str(lng), "address": formatted}
+            elif address:
+                if nearby.amap_configured():
+                    try:
+                        formatted, g_lng, g_lat = await nearby.geocode(address)
+                        fields = {"address": formatted, "lng": g_lng, "lat": g_lat}
+                    except Exception:
+                        fields = {"address": address}  # 解析失败仍保存文本
+                else:
+                    fields = {"address": address}
+            else:
+                return JSONResponse({"detail": "缺少 lat/lng 或 address"}, status_code=400)
+        except Exception as exc:  # noqa: BLE001
+            return JSONResponse({"detail": f"位置解析失败：{exc}"}, status_code=400)
+        entry = locations.set_default(**fields)
+        return {"ok": True, "location": entry}
+
     # ------------------------------------------------ 浏览器扫码登录
     @router.post("/api/browser-login/start")
     async def browser_login_start(request: Request) -> JSONResponse:

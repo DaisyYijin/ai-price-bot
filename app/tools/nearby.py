@@ -8,6 +8,7 @@ import httpx
 from app.config import get_settings
 
 _GEOCODE_URL = "https://restapi.amap.com/v3/geocode/geo"
+_REGEO_URL = "https://restapi.amap.com/v3/geocode/regeo"
 _AROUND_URL = "https://restapi.amap.com/v3/place/around"
 
 
@@ -36,6 +37,14 @@ async def geocode(address: str) -> tuple[str, str, str] | None:
         return None
     g = geocodes[0]
     return g.get("formatted_address") or address, str(g.get("location", "")).split(",")[0], str(g.get("location", "")).split(",")[1]
+
+
+async def regeo(lng: str, lat: str) -> str:
+    """坐标 → 格式化地址（逆地理编码）。"""
+    data = await _get_json(_REGEO_URL, {"location": f"{lng},{lat}", "key": _key()})
+    if data.get("status") != "1":
+        raise RuntimeError(f"高德逆地理编码失败: {data.get('info') or data}")
+    return (data.get("regeocode") or {}).get("formatted_address") or ""
 
 
 async def nearby_places(keyword: str, lng: str, lat: str, radius: int = 5000) -> list[dict]:

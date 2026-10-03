@@ -32,10 +32,13 @@ async def execute_compare_prices(
     if not providers:
         return "当前没有启用任何价格数据源（检查 .env 的 PRICE_PROVIDERS）。"
 
-    if not city and ctx is not None and ctx.user_id:
+    if not city:
         from app.core import locations
 
-        location = locations.get(ctx.platform, ctx.user_id)
+        location = None
+        if ctx is not None and ctx.user_id:
+            location = locations.get(ctx.platform, ctx.user_id)
+        location = location or locations.get_default()
         if location and location.get("city"):
             city = location["city"]
 

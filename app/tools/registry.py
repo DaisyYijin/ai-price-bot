@@ -159,6 +159,10 @@ async def _execute_find_nearby(keyword: str, radius, ctx: ToolContext | None) ->
     from app.core import locations
 
     location = locations.get(ctx.platform, ctx.user_id)
+    used_default = False
+    if not location:
+        location = locations.get_default()  # 用户没给过位置时，用管理后台设置的默认位置
+        used_default = location is not None
     if not location or not (location.get("lng") and location.get("lat")):
         if not nearby.amap_configured():
             return (
@@ -198,4 +202,8 @@ async def _execute_find_nearby(keyword: str, radius, ctx: ToolContext | None) ->
             extras.append(f"人均¥{p['cost']}")
         extra = f"（{'，'.join(extras)}）" if extras else ""
         lines.append(f"{i}. {p['name']}｜{distance}｜{p['address'] or '地址见地图'}{extra}")
-    return f"你附近（{radius_meters // 1000}公里内）的「{keyword}」按距离排序：\n" + "\n".join(lines)
+    return (
+        f"你附近（{radius_meters // 1000}公里内）的「{keyword}」按距离排序"
+        + ("（按默认位置查询，个人定位可在聊天里说「我在XX市XX区」更新）" if used_default else "")
+        + "：\n" + "\n".join(lines)
+    )
