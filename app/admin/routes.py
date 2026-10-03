@@ -228,6 +228,25 @@ def create_admin_router(dispatcher: Dispatcher) -> APIRouter:
             return JSONResponse({"ok": False, "detail": "接口未返回任何模型，请手动填写模型名"})
         return {"ok": True, "models": models, "detail": f"获取到 {len(models)} 个模型，点击模型输入框选择"}
 
+    # ------------------------------------------------ 版本信息
+    @router.get("/api/version")
+    async def version_info(request: Request):
+        """当前运行版本 vs 最新已发布镜像（以 Actions 最后一次成功构建为准）。"""
+        if not _authed(request):
+            return _unauthorized()
+        current = os.environ.get("APP_VERSION", "dev")
+        latest = await _latest_image_sha()
+        if current == "dev" or not latest:
+            up_to_date = None  # 本地源码运行或查询失败，无法判定
+        else:
+            up_to_date = current.startswith(latest[:7]) or latest.startswith(current[:7])
+        return {
+            "current": current,
+            "latest": latest,
+            "up_to_date": up_to_date,
+            "hint": "面板的『有新版本』对多架构镜像常误报，以此处为准；更新: docker compose pull && docker compose up -d",
+        }
+
     # ------------------------------------------------ 默认位置
     @router.get("/api/location")
     async def get_default_location(request: Request):
@@ -395,6 +414,28 @@ def create_admin_router(dispatcher: Dispatcher) -> APIRouter:
         return JSONResponse({"restarting": True})
 
     return router
+
+
+_version_cache: dict = {"ts": 0.0, "sha": ""}
+
+
+async def _latest_image_sha() -> str | None:
+    """查询最近一次成功构建镜像对应的 git sha（5 分钟缓存）。"""
+    if time.time() - _version_cache["ts"] < 300 and _version_cache["sha"]:
+        return _version_cache["sha"]
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.get(
+                "https://api.github.com/repos/DaisyYijin/ai-price-bot/actions/workflows/docker-publish.yml/runs",
+                params={"status": "success", "per_page": 1},
+            )
+            runs = (resp.json().get("workflow_runs") or [])
+        sha = runs[0].get("head_sha") if runs else None
+    except Exception:
+        return _version_cache["sha"] or None
+    if sha:
+        _version_cache.update(ts=time.time(), sha=sha)
+    return sha
 
 
 def _validate(updates: dict[str, str]) -> str | None:

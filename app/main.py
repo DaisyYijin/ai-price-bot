@@ -7,6 +7,7 @@
 """
 
 import logging
+import os
 from contextlib import asynccontextmanager
 from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
@@ -17,6 +18,8 @@ from fastapi.responses import FileResponse, RedirectResponse
 from app.config import LOG_DIR, get_settings
 from app.core.dispatcher import Dispatcher
 from app.platforms.base import PlatformAdapter
+
+VERSION = os.environ.get("APP_VERSION", "dev")  # 镜像构建时注入的 git sha
 
 
 def _setup_logging() -> None:
@@ -129,6 +132,7 @@ def create_admin_app() -> FastAPI:
         return {
             "status": "ok",
             "service": "admin",
+            "version": VERSION,
             "platforms": [a.platform for a in app.state.adapters],
             "llm": settings.llm_model if settings.llm_api_key else "(未配置，仅规则模式)",
         }
@@ -153,7 +157,7 @@ def create_public_app() -> FastAPI:
 
     @app.get("/healthz")
     async def healthz() -> dict:
-        return {"status": "ok", "service": "public"}
+        return {"status": "ok", "service": "public", "version": VERSION}
 
     return app
 

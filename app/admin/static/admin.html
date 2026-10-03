@@ -460,6 +460,8 @@ async function buildDashboard() {
   } catch (e) {}
   let defaultLoc = null;
   try { defaultLoc = (await api("location")).location; } catch (e) {}
+  let ver = {};
+  try { ver = await api("version"); } catch (e) {}
 
   const item = (title, stateHtml, btnText, page) =>
     `<div class="dash-item"><h3>${title}</h3><div class="state">${stateHtml}</div>
@@ -493,7 +495,14 @@ async function buildDashboard() {
         : "<span class='dot'></span>未设置（未定位的用户按此查附近）",
       "去设置", "browser") +
     item("⚙️ 系统",
-      `<span class="hint">网页聊天 <a style="color:var(--accent)" href="/chat">/chat</a> · 配置持久化于 ./config ./data ./logs</span>`,
+      (ver.current
+        ? (ver.up_to_date === true
+            ? `<span class="dot on"></span>已是最新版（${(ver.current || "").slice(0, 7)}）`
+            : ver.up_to_date === false
+              ? `<span class="dot"></span>有新版本 ${(ver.latest || "").slice(0, 7)}，当前 ${(ver.current || "").slice(0, 7)}`
+              : `<span class="dot"></span>本地源码运行，未运行容器镜像`)
+        : "") +
+      `<br><span class="hint">更新: docker compose pull && docker compose up -d · 面板的『有新版本』对多架构镜像常误报，以这里为准</span>`,
       "重启服务", "").replace(
         `onclick="goto('')"`, `onclick="doRestart()"`);
 }

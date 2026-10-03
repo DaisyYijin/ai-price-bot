@@ -147,6 +147,31 @@ def test_models_endpoint_requires_auth(client):
     assert client.post("/admin/api/models", json={"values": {}}).status_code == 401
 
 
+def test_version_endpoint(client, monkeypatch):
+    """版本比对：当前=最新 → 已是最新；落后 → 有新版本。"""
+    from app.admin import routes as routes_module
+
+    client.post("/admin/api/setup", json={"username": "admin", "password": "admin-pass-1"})
+
+    async def fake_latest():
+        return "aaaabbbbccccdddd"
+
+    monkeypatch.setattr(routes_module, "_latest_image_sha", fake_latest)
+
+    monkeypatch.setenv("APP_VERSION", "aaaabbbbccccdddd")
+    data = client.get("/admin/api/version").json()
+    assert data["up_to_date"] is True
+
+    monkeypatch.setenv("APP_VERSION", "1111222233334444")
+    data = client.get("/admin/api/version").json()
+    assert data["up_to_date"] is False and data["latest"] == "aaaabbbbccccdddd"
+
+    # 本地源码运行（dev）无法判定
+    monkeypatch.delenv("APP_VERSION", raising=False)
+    data = client.get("/admin/api/version").json()
+    assert data["up_to_date"] is None
+
+
 def test_detect_llm(client, monkeypatch):
     """自动识别：候选厂商逐一探测，命中即返回厂商与推荐模型。"""
     from app.admin import routes as routes_module
