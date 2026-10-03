@@ -7,9 +7,10 @@
 import logging
 from contextlib import asynccontextmanager
 from logging.handlers import TimedRotatingFileHandler
+from pathlib import Path
 
 from fastapi import FastAPI
-from fastapi.responses import RedirectResponse
+from fastapi.responses import FileResponse
 
 from app.config import LOG_DIR, get_settings
 from app.core.dispatcher import Dispatcher
@@ -105,8 +106,10 @@ def create_app() -> FastAPI:
         adapter.register_routes(app)
 
     @app.get("/", include_in_schema=False)
-    async def root() -> RedirectResponse:
-        return RedirectResponse(url="/admin")
+    async def home() -> FileResponse:
+        # 前台首页：网页聊天与管理后台的入口
+        page = Path(__file__).parent / "webchat" / "static" / "index.html"
+        return FileResponse(page, media_type="text/html")
 
     @app.get("/healthz")
     async def healthz() -> dict:

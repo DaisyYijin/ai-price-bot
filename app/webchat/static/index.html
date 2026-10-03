@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AI 比价助手</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%92%B0%3C/text%3E%3C/svg%3E">
+<style>
+  * { box-sizing:border-box; margin:0; -webkit-tap-highlight-color:transparent; }
+  body {
+    min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:22px; padding:32px 20px; color:#1d2433;
+    font:15px/1.7 "Segoe UI","Microsoft YaHei",system-ui,sans-serif;
+    background:linear-gradient(160deg,#eef2ff 0%,#f7f8fc 45%,#e9f7f1 100%);
+  }
+  .hero { text-align:center; }
+  .logo {
+    width:84px; height:84px; border-radius:24px; margin:0 auto 16px;
+    background:linear-gradient(135deg,#4f7cff,#7a5cff);
+    display:flex; align-items:center; justify-content:center; font-size:44px;
+    box-shadow:0 12px 32px rgba(79,124,255,.28);
+  }
+  h1 { font-size:26px; margin-bottom:6px; }
+  .sub { color:#66708a; font-size:14.5px; }
+  .actions { display:flex; flex-direction:column; gap:12px; width:min(92vw,360px); }
+  .btn {
+    display:flex; align-items:center; gap:12px; padding:16px 20px;
+    border-radius:14px; text-decoration:none; font-size:16px; font-weight:600;
+    border:1px solid #e3e8f2; background:#fff; color:#1d2433;
+    box-shadow:0 4px 14px rgba(29,36,51,.05); transition:.15s;
+  }
+  .btn:hover { transform:translateY(-1px); box-shadow:0 8px 22px rgba(29,36,51,.09); }
+  .btn .ico { font-size:22px; }
+  .btn small { display:block; font-weight:400; font-size:12.5px; color:#8b93a8; margin-top:2px; }
+  .btn.primary { background:linear-gradient(135deg,#4f7cff,#6a8bff); border:none; color:#fff; }
+  .btn.primary small { color:rgba(255,255,255,.8); }
+  .chips { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; }
+  .chip {
+    background:#fff; border:1px solid #e3e8f2; color:#66708a;
+    border-radius:99px; padding:5px 13px; font-size:12.5px;
+  }
+  footer { color:#9aa3b8; font-size:12.5px; text-align:center; max-width:340px; }
+</style>
+</head>
+<body>
+  <div class="hero">
+    <div class="logo">💰</div>
+    <h1>AI 比价助手</h1>
+    <div class="sub">说句话，帮你比遍美团 / 淘宝 / 京东 / 抖音<br>优惠最大的，直接推给你</div>
+  </div>
+
+  <div class="actions">
+    <a class="btn primary" href="/chat">
+      <span class="ico">💬</span>
+      <span>网页聊天<small>手机/电脑浏览器直接用，支持 GPS 精确定位</small></span>
+    </a>
+    <a class="btn" href="/admin">
+      <span class="ico">⚙️</span>
+      <span>管理后台<small>配置 AI、平台接入、数据源与登录</small></span>
+    </a>
+  </div>
+
+  <div class="chips" id="chips"></div>
+
+  <footer>也可接入企业微信 / 钉钉 / QQ 机器人，在聊天软件里同样使用</footer>
+
+<script>
+fetch("/healthz").then(r => r.json()).then(d => {
+  const names = { wecom: "企业微信", dingtalk: "钉钉", qq: "QQ机器人" };
+  const on = (d.platforms || []).map(p => names[p]).filter(Boolean);
+  const el = document.getElementById("chips");
+  el.innerHTML = on.length
+    ? `<span class="chip">🤖 已接入机器人：${on.join(" · ")}</span>`
+    : `<span class="chip">🤖 机器人未接入（可在管理后台开启）</span>`;
+}).catch(() => {});
+</script>
+</body>
+</html>

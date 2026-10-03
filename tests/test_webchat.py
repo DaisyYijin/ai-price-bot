@@ -28,6 +28,16 @@ def _login(client):
     client.post("/admin/api/setup", json={"username": "admin", "password": "admin-pass-1"})
 
 
+def test_landing_page(client):
+    """前台首页：入口齐全，/chat /admin 均可直达。"""
+    resp = client.get("/")
+    assert resp.status_code == 200
+    assert "网页聊天" in resp.text and "/chat" in resp.text
+    assert "管理后台" in resp.text and "/admin" in resp.text
+    assert client.get("/chat").status_code == 200
+    assert client.get("/admin").status_code == 200
+
+
 def test_message_requires_auth(client):
     assert client.post("/chat/api/message", json={"uid": "abc", "text": "hi"}).status_code == 401
 
