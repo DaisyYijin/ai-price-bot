@@ -6,38 +6,19 @@
 """
 
 import logging
-import re
 
-from app.core.models import Quote
 from app.browser import manager as bm
+from app.browser.extract import EXTRACT_JS
+from app.core.models import Quote
 
 logger = logging.getLogger(__name__)
 
 _ENTRY_URL = "https://i.meituan.com/"
-_PRICE_JS = """() => {
-  const out = [];
-  const seen = new Set();
-  document.querySelectorAll('div,li,a').forEach(el => {
-    if (el.children.length > 6) return;
-    const text = (el.innerText || '').trim();
-    if (!text || text.length > 400) return;
-    const m = text.match(/[¥￥]\\s*(\\d+(?:\\.\\d{1,2})?)/);
-    if (!m) return;
-    const lines = text.split('\\n').map(s => s.trim()).filter(Boolean);
-    const title = lines.find(l => l.length > 4 && !/[¥￥]/.test(l) && !/^\\d+(\\.\\d+)?$/.test(l));
-    if (!title) return;
-    const key = title + m[1];
-    if (seen.has(key)) return;
-    seen.add(key);
-    out.push({title: title.slice(0, 60), price: parseFloat(m[1]), extra: lines.slice(0, 4)});
-  });
-  return out.slice(0, 30);
-}"""
 
 
 async def search_meituan(keyword: str) -> list[Quote]:
     if not bm.is_logged_in("meituan"):
-        raise RuntimeError("美团未登录：请在管理后台「浏览器登录」扫码")
+        raise RuntimeError("美团未登录：请在管理后台「浏览器登录」填写账号")
 
     manager = bm.get_browser_manager()
     async with manager.lock:
@@ -46,9 +27,9 @@ async def search_meituan(keyword: str) -> list[Quote]:
             await page.goto(_ENTRY_URL, wait_until="domcontentloaded", timeout=30000)
             await page.wait_for_timeout(3000)
             if "verify.meituan.com" in page.url:
-                raise RuntimeError("触发美团人机验证：登录态可能已过期或被风控，请在管理后台重新扫码")
+                raise RuntimeError("触发美团人机验证：登录态可能已过期或被风控，请在管理后台重新登录")
 
-            # H5 首页有搜索框；没有则回退地址栏直达
+            # H5 首页有搜索框；没有则靠页面默认内容解析
             try:
                 box = page.locator("input[type=search], input[placeholder*=搜索]").first
                 await box.click(timeout=5000)
@@ -56,9 +37,9 @@ async def search_meituan(keyword: str) -> list[Quote]:
                 await box.press("Enter")
                 await page.wait_for_timeout(4000)
             except Exception:
-                logger.info("美团搜索框未找到，尝试搜索 URL 直达")
+                logger.info("美团搜索框未找到，按默认页面解析")
 
-            items = await page.evaluate(_PRICE_JS)
+            items = await page.evaluate(EXTRACT_JS)
             quotes: list[Quote] = []
             for item in items:
                 price = float(item.get("price") or 0)

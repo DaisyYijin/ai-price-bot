@@ -58,15 +58,18 @@ def build_effective(settings: Settings) -> list["PriceProvider"]:
 
                 providers.append(JdUnionProvider())
                 continue
-        if (
-            name.lower() == "meituan"
-            and getattr(settings, "browser_enabled", False)
-        ):
+        if getattr(settings, "browser_enabled", False):
             from app.browser import manager as bm
-            from app.providers.browser_meituan import BrowserMeituanProvider
 
-            if bm.is_logged_in("meituan"):
+            if name.lower() == "meituan" and bm.is_logged_in("meituan"):
+                from app.providers.browser_meituan import BrowserMeituanProvider
+
                 providers.append(BrowserMeituanProvider())
+                continue
+            if name.lower() == "douyin" and bm.is_logged_in("douyin"):
+                from app.providers.browser_douyin import BrowserDouyinProvider
+
+                providers.append(BrowserDouyinProvider())
                 continue
         providers.extend(build_enabled([name]))
     return providers

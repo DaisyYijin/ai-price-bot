@@ -153,6 +153,31 @@ def test_build_effective_browser_meituan(monkeypatch, tmp_path):
     assert isinstance(provider_base.build_effective(_fake_settings(browser_enabled=False))[0], MeituanMock)
 
 
+def test_build_effective_browser_douyin(monkeypatch, tmp_path):
+    """抖音：浏览器开关+已扫码 → 浏览器真实源，否则模拟。"""
+    from app.browser import manager as bm
+    from app.providers.browser_douyin import BrowserDouyinProvider
+    from app.providers.mock import DouyinMock
+
+    monkeypatch.setattr(bm, "DATA_DIR", tmp_path)
+    names = lambda: ["douyin"]  # noqa: E731
+    assert isinstance(provider_base.build_effective(_fake_settings(enabled_provider_names=names))[0], DouyinMock)
+    bm.mark_logged_in("douyin")
+    providers = provider_base.build_effective(
+        _fake_settings(enabled_provider_names=names, browser_enabled=True)
+    )
+    assert isinstance(providers[0], BrowserDouyinProvider)
+
+
+async def test_browser_douyin_requires_login(monkeypatch, tmp_path):
+    from app.browser import manager as bm
+    from app.providers.browser_douyin import BrowserDouyinProvider
+
+    monkeypatch.setattr(bm, "DATA_DIR", tmp_path)
+    with pytest.raises(RuntimeError, match="未登录"):
+        await BrowserDouyinProvider().search("足疗")
+
+
 async def test_browser_meituan_requires_login(monkeypatch, tmp_path):
     from app.browser import manager as bm
     from app.providers.browser_meituan import BrowserMeituanProvider
